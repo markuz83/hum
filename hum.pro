@@ -8,11 +8,13 @@ HEADERS += \
     src/analyzer.h \
     src/backend.h \
     src/coverprovider.h \
+    src/mpris.h \
     src/theme.h \
     src/translator.h
 
 SOURCES += \
     src/main.cpp \
+    src/mpris.cpp \
     src/analyzer.cpp \
     src/backend.cpp \
     src/theme.cpp \

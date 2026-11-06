@@ -38,8 +38,9 @@ class Backend : public QObject {
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY volumeChanged)
-    Q_PROPERTY(bool shuffle READ shuffle NOTIFY modeChanged)
-    Q_PROPERTY(int repeat READ repeat NOTIFY modeChanged)
+    Q_PROPERTY(bool shuffle READ shuffle WRITE setShuffle NOTIFY modeChanged)
+    Q_PROPERTY(int repeat READ repeat WRITE setRepeat NOTIFY modeChanged)
+    Q_PROPERTY(int visualizerStyle READ visualizerStyle WRITE setVisualizerStyle NOTIFY modeChanged)
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY browserChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
@@ -77,6 +78,11 @@ public:
     QString error() const { return m_error; }
     bool scanning() const { return m_scanning; }
     QString libraryPath() const { return m_library; }
+    QString currentPath() const { return m_current >= 0 ? m_tracks[m_current].path : QString(); }
+    // "Playing", "Paused" or "Stopped", as MPRIS names them.
+    QString playbackState() const;
+    int visualizerStyle() const { return m_visualizerStyle; }
+    bool canGoNext() const { return !m_visible.isEmpty(); }
     int libraryCount() const { return m_tracks.size(); }
     QVariantList levels() const { return m_levelList; }
 
@@ -97,6 +103,11 @@ public:
     // the cache file for files that haven't changed.
     static TagResult readTags(const QStringList &paths, const QString &cacheFile);
     void setCacheFile(const QString &path) { m_cacheFile = path; }
+    // Where volume, modes, and the last track are remembered. Without a state
+    // file nothing is saved, which keeps tests away from the user's settings.
+    // Setting it also loads whatever was saved.
+    void setStateFile(const QString &path);
+    void saveState();
 
     // Audio files under a folder, sorted so "2 - x" comes before "10 - x".
     static QStringList scan(const QString &folder);
@@ -117,6 +128,11 @@ public:
     Q_INVOKABLE void toggleMute();
     Q_INVOKABLE void toggleShuffle();
     Q_INVOKABLE void cycleRepeat();
+    Q_INVOKABLE void stop();
+    Q_INVOKABLE void cycleVisualizer();
+    void setShuffle(bool shuffle);
+    void setRepeat(int repeat);
+    void setVisualizerStyle(int style);
     void setVolume(qreal volume);
     void setFilter(const QString &filter);
 
@@ -127,6 +143,8 @@ signals:
     void currentChanged();
     void playingChanged();
     void positionChanged();
+    // The user or another program jumped to a new position, in milliseconds.
+    void seeked(qint64 ms);
     void durationChanged();
     void volumeChanged();
     void modeChanged();
@@ -143,6 +161,8 @@ private:
         int track = 0, disc = 0;
     };
 
+    void loadState();
+    void scheduleSave();
     void finishScan(const QStringList &paths);
     void finishReading(const TagResult &result);
     void sortTracks();
@@ -161,10 +181,16 @@ private:
     QString m_artistSel, m_albumSel;
     int m_current = -1;    // index into m_tracks, -1 when nothing is loaded
     QString m_library, m_filter, m_error, m_title, m_artist, m_album, m_pending, m_cacheFile;
+    QString m_stateFile, m_resumePath, m_savedLibrary;
+    qint64 m_resumePosition = 0;
+    qint64 m_resumeAt = -1;  // where to seek once the resumed track has loaded
+    bool m_loadingState = false;
+    QTimer m_saveTimer, m_positionTimer;
     QImage m_cover;
     int m_coverId = 0;
     bool m_reading = false;
     bool m_scanning = false, m_shuffle = false;
+    int m_visualizerStyle = 0;
     int m_repeat = RepeatOff;
     qreal m_volume = 0.8;
 

@@ -31,7 +31,6 @@ ApplicationWindow {
     readonly property color ground: theme.background
     readonly property color dim: theme.muted
     property bool helpVisible: false
-    property int visualizerStyle: 0
     // Which browser column the keyboard drives: 0 artists, 1 albums, 2 titles.
     property int activeColumn: 2
     // Typing in the filter must not trigger the single-key shortcuts.
@@ -94,7 +93,7 @@ ApplicationWindow {
     Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleMute() }
     Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleShuffle() }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleRepeat() }
-    Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.visualizerStyle = (win.visualizerStyle + 1) % 3 }
+    Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleVisualizer() }
     Shortcut { sequences: ["J", "Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(1) }
     Shortcut { sequences: ["K", "Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(-1) }
     Shortcut { sequences: ["L", "Tab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.min(2, win.activeColumn + 1) }
@@ -200,7 +199,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         levels: backend.levels
-                        style: win.visualizerStyle
+                        style: backend.visualizerStyle
                         color: theme.accent
                         radius: Math.min(4, theme.radius)
                     }

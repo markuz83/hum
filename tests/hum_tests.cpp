@@ -9,8 +9,21 @@
 
 #include "analyzer.h"
 #include "backend.h"
+#include "mpris.h"
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 #include "theme.h"
 #include "translator.h"
+
+// Records PropertiesChanged signals from the MPRIS player.
+class ChangeListener : public QObject {
+    Q_OBJECT
+public:
+    QList<QVariantMap> changes;
+public slots:
+    void onChanged(const QString &, const QVariantMap &changed, const QStringList &) { changes << changed; }
+};
 
 class HumTests : public QObject {
     Q_OBJECT
@@ -151,6 +164,135 @@ private slots:
         QVERIFY(QFileInfo::exists(dir.path() + "/.cache/tags.json"));
         const auto again = Backend::readTags(Backend::scan(dir.path()), dir.path() + "/.cache/tags.json");
         QCOMPARE(again.tags.size(), 3);
+    }
+
+    void mprisExposesAndControlsThePlayer()
+    {
+        if (!QDBusConnection::sessionBus().isConnected())
+            QSKIP("needs a D-Bus session bus");
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        make(dir.path() + "/1.mp3", "First", "Zed", "Z Album", 1);
+        make(dir.path() + "/2.mp3", "Second", "Zed", "Z Album", 2);
+        Backend backend;
+        backend.setVolume(0);
+        ready(backend, dir, {});
+
+        const QString name = "humtest" + QString::number(QCoreApplication::applicationPid());
+        Mpris mpris(&backend, name, dir.path() + "/art");
+        QVERIFY(mpris.registered());
+
+        ChangeListener listener;
+        QDBusConnection::sessionBus().connect(mpris.serviceName(), "/org/mpris/MediaPlayer2",
+            "org.freedesktop.DBus.Properties", "PropertiesChanged", &listener, SLOT(onChanged(QString,QVariantMap,QStringList)));
+
+        QDBusInterface root(mpris.serviceName(), "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2");
+        QDBusInterface player(mpris.serviceName(), "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player");
+        QVERIFY(root.isValid() && player.isValid());
+        QCOMPARE(root.property("Identity").toString(), QString("Hum"));
+        QCOMPARE(root.property("DesktopEntry").toString(), QString("hum"));
+        QCOMPARE(player.property("PlaybackStatus").toString(), QString("Stopped"));
+        QCOMPARE(player.property("CanControl").toBool(), true);
+
+        // Writable properties go through to the app.
+        QVERIFY(player.setProperty("LoopStatus", "Track"));
+        QCOMPARE(backend.repeat(), int(Backend::RepeatOne));
+        QCOMPARE(player.property("LoopStatus").toString(), QString("Track"));
+        QVERIFY(player.setProperty("Shuffle", true));
+        QVERIFY(backend.shuffle());
+        player.setProperty("Shuffle", false);
+
+        // Playing announces the new state and track.
+        player.call("PlayPause");
+        QTRY_COMPARE(player.property("PlaybackStatus").toString(), QString("Playing"));
+        QCOMPARE(backend.currentRow(), 0);
+        QTRY_VERIFY(std::any_of(listener.changes.begin(), listener.changes.end(),
+                                [](const QVariantMap &m) { return m.value("PlaybackStatus") == "Playing" && m.contains("Metadata"); }));
+
+        const QVariant raw = player.property("Metadata");
+        const QVariantMap metadata = raw.metaType() == QMetaType::fromType<QDBusArgument>()
+            ? qdbus_cast<QVariantMap>(raw.value<QDBusArgument>()) : raw.toMap();
+        QCOMPARE(metadata.value("xesam:title").toString(), QString("First"));
+        QCOMPARE(metadata.value("xesam:album").toString(), QString("Z Album"));
+        QCOMPARE(metadata.value("xesam:artist").toStringList(), QStringList({"Zed"}));
+        QVERIFY(metadata.value("mpris:trackid").value<QDBusObjectPath>().path().startsWith("/org/hum/track/"));
+
+        player.setProperty("LoopStatus", "None");
+        player.call("Next");
+        QTRY_COMPARE(backend.currentRow(), 1);
+        QTRY_COMPARE(player.property("PlaybackStatus").toString(), QString("Playing"));
+        player.call("Pause");
+        QTRY_COMPARE(player.property("PlaybackStatus").toString(), QString("Paused"));
+        player.call("Stop");
+        QTRY_COMPARE(player.property("PlaybackStatus").toString(), QString("Stopped"));
+    }
+
+    void settingsAndTrackComeBackNextTime()
+    {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        const QString state = dir.path() + "/config/state.json";
+        make(dir.path() + "/1.mp3", "First", "Zed", "Z Album", 1);
+        make(dir.path() + "/2.mp3", "Second", "Zed", "Z Album", 2);
+
+        {
+            Backend backend;
+            backend.setStateFile(state);
+            backend.setVolume(0);  // silent for the test; saved as 0 below
+            ready(backend, dir, {});
+            backend.setVolume(0.3);
+            backend.setShuffle(true);
+            backend.setRepeat(Backend::RepeatAll);
+            backend.setVisualizerStyle(2);
+            backend.play(1);
+            QTRY_VERIFY(backend.duration() > 1000);
+            backend.seek(2000);
+            backend.toggle();  // pause, so nothing plays aloud
+            backend.saveState();
+        }
+        QVERIFY(QFileInfo::exists(state));
+
+        Backend again;
+        again.setStateFile(state);
+        QCOMPARE(again.volume(), 0.3);
+        QVERIFY(again.shuffle());
+        QCOMPARE(again.repeat(), int(Backend::RepeatAll));
+        QCOMPARE(again.visualizerStyle(), 2);
+        again.setVolume(0);
+        ready(again, dir, {});
+        // The same track is waiting, paused, near where it was left.
+        QCOMPARE(again.currentRow(), 1);
+        QVERIFY(!again.playing());
+        QTRY_VERIFY(qAbs(again.position() - 2000) < 400);
+    }
+
+    void aCommandLineFileBeatsTheSavedTrack()
+    {
+        QTemporaryDir dir;
+        const QString state = dir.path() + "/state.json";
+        write(state, QByteArray("{\"track\": \"") + dir.path().toUtf8() + "/a.mp3\", \"position\": 5000}");
+        touch(dir.path() + "/a.mp3");
+        touch(dir.path() + "/b.mp3");
+        Backend backend;
+        backend.setStateFile(state);
+        backend.setVolume(0);
+        backend.setCacheFile(dir.path() + "/tags.json");
+        QSignalSpy scanned(&backend, &Backend::scanningChanged);
+        backend.open(dir.path() + "/b.mp3");
+        while (backend.scanning())
+            scanned.wait(2000);
+        QCOMPARE(backend.title(), QString("b"));
+    }
+
+    void withoutAStateFileNothingIsWritten()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        backend.setVolume(0.5);
+        backend.saveState();
+        QVERIFY(QDir(dir.path()).isEmpty());
     }
 
     void emptyLibraryIsReported()
@@ -436,7 +578,7 @@ private:
     static void make(const QString &path, const QString &title, const QString &artist, const QString &album, int track)
     {
         QProcess ffmpeg;
-        ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", "0.2",
+        ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", "5",
                                 "-metadata", "title=" + title, "-metadata", "artist=" + artist,
                                 "-metadata", "album=" + album, "-metadata", "track=" + QString::number(track), "-y", path});
         QVERIFY(ffmpeg.waitForFinished(15000));

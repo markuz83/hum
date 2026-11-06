@@ -5,12 +5,14 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QStandardPaths>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QUrl>
 
 #include "backend.h"
 #include "coverprovider.h"
+#include "mpris.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -44,7 +46,12 @@ int main(int argc, char *argv[]) {
 
     Theme theme;
     Backend backend;
+    // Volume, shuffle, repeat, visualizer, and the last track come back next time.
+    backend.setStateFile(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/state.json");
     backend.open(parser.positionalArguments().value(0));
+
+    // Media keys, `playerctl`, and desktop media widgets control Hum through this.
+    Mpris mpris(&backend);
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);

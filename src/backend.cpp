@@ -1,6 +1,7 @@
 #include "backend.h"
 
 #include <QCollator>
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QJsonDocument>
@@ -46,6 +47,12 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
     connect(&m_player, &QMediaPlayer::metaDataChanged, this, &Backend::readMetadata);
     connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this] {
         emit playingChanged();
+        // Remember the position while playing, and exactly where it stopped.
+        if (playing())
+            m_positionTimer.start();
+        else
+            m_positionTimer.stop();
+        scheduleSave();
         if (playing()) {
             m_clockBase = m_player.position();
             m_clock.restart();
@@ -56,16 +63,82 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
     connect(&m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
         if (status == QMediaPlayer::EndOfMedia)
             advanceAfterEnd();
+        // A resumed track waits, paused, at the spot where Hum was closed.
+        if (status == QMediaPlayer::LoadedMedia && m_resumeAt >= 0) {
+            m_clockBase = m_resumeAt;
+            m_clock.restart();
+            m_player.setPosition(m_resumeAt);
+            m_resumeAt = -1;
+            emit positionChanged();
+        }
     });
     connect(&m_player, &QMediaPlayer::errorOccurred, this, [this](QMediaPlayer::Error, const QString &message) {
         setError(tr("Can't play %1: %2").arg(m_title, message));
     });
+
+    m_saveTimer.setSingleShot(true);
+    m_saveTimer.setInterval(800);
+    connect(&m_saveTimer, &QTimer::timeout, this, &Backend::saveState);
+    m_positionTimer.setInterval(10000);
+    connect(&m_positionTimer, &QTimer::timeout, this, &Backend::saveState);
+    for (auto signal : {&Backend::volumeChanged, &Backend::modeChanged, &Backend::currentChanged})
+        connect(this, signal, this, &Backend::scheduleSave);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &Backend::saveState);
 
     m_frames.setInterval(33);
     connect(&m_frames, &QTimer::timeout, this, &Backend::tick);
     connect(&m_watcher, &QFutureWatcher<QStringList>::finished, this, [this] { finishScan(m_watcher.result()); });
     connect(&m_tagWatcher, &QFutureWatcher<TagResult>::finished, this, [this] { finishReading(m_tagWatcher.result()); });
     m_cacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/tags.json";
+}
+
+void Backend::setStateFile(const QString &path) {
+    m_stateFile = path;
+    loadState();
+}
+
+void Backend::loadState() {
+    QFile file(m_stateFile);
+    if (m_stateFile.isEmpty() || !file.open(QIODevice::ReadOnly))
+        return;
+    const QJsonObject state = QJsonDocument::fromJson(file.readAll()).object();
+    // Applying saved values must not trigger a save of half-restored state.
+    m_loadingState = true;
+    if (state.contains("volume"))
+        setVolume(state.value("volume").toDouble(m_volume));
+    setShuffle(state.value("shuffle").toBool());
+    setRepeat(state.value("repeat").toInt());
+    setVisualizerStyle(state.value("visualizer").toInt());
+    m_resumePath = state.value("track").toString();
+    m_resumePosition = qint64(state.value("position").toDouble());
+    m_savedLibrary = state.value("library").toString();
+    m_loadingState = false;
+}
+
+void Backend::scheduleSave() {
+    if (!m_stateFile.isEmpty() && !m_loadingState)
+        m_saveTimer.start();
+}
+
+// Saved beside the target and renamed, so a crash never leaves half a file.
+void Backend::saveState() {
+    if (m_stateFile.isEmpty())
+        return;
+    QJsonObject state{{"volume", m_volume}, {"shuffle", m_shuffle}, {"repeat", m_repeat},
+                      {"visualizer", m_visualizerStyle}, {"track", currentPath()},
+                      {"position", double(m_resumeAt >= 0 ? m_resumeAt : m_player.position())},
+                      {"library", m_savedLibrary}};
+    // Before the track the user left has been found again, keep remembering it.
+    if (currentPath().isEmpty() && !m_resumePath.isEmpty()) {
+        state["track"] = m_resumePath;
+        state["position"] = double(m_resumePosition);
+    }
+    QDir().mkpath(QFileInfo(m_stateFile).absolutePath());
+    QSaveFile out(m_stateFile);
+    if (out.open(QIODevice::WriteOnly)) {
+        out.write(QJsonDocument(state).toJson());
+        out.commit();
+    }
 }
 
 bool Backend::isAudioFile(const QString &path) {
@@ -91,7 +164,7 @@ void Backend::open(const QString &path) {
     QString folder = path;
     m_pending.clear();
     if (path.isEmpty()) {
-        folder = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+        folder = QFileInfo(m_savedLibrary).isDir() ? m_savedLibrary : QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
     } else if (QFileInfo(path).isFile()) {
         m_pending = QFileInfo(path).absoluteFilePath();
         folder = QFileInfo(path).absolutePath();
@@ -265,6 +338,17 @@ void Backend::finishScan(const QStringList &paths) {
             if (m_tracks[m_visible[row]].path == m_pending)
                 play(row);
         m_pending.clear();
+    } else if (!m_resumePath.isEmpty()) {
+        // Reopening without a file picks up where the last session stopped,
+        // paused, if that track is still in the library.
+        for (int row = 0; row < m_visible.size(); ++row) {
+            if (m_tracks[m_visible[row]].path == m_resumePath && m_current < 0) {
+                m_current = m_visible[row];
+                m_resumeAt = m_resumePosition;
+                loadCurrent();
+            }
+        }
+        m_resumePath.clear();
     }
 
     // Tags arrive a moment later, and the lists re-sort when they do.
@@ -421,6 +505,7 @@ void Backend::play(int row) {
     if (row < 0 || row >= m_visible.size())
         return;
     m_current = m_visible[row];
+    m_resumeAt = -1;
     setError({});
     loadCurrent();
     m_player.play();
@@ -536,6 +621,7 @@ void Backend::seek(qint64 ms) {
     m_clockBase = std::clamp<qint64>(ms, 0, std::max<qint64>(0, duration()));
     m_clock.restart();
     m_player.setPosition(m_clockBase);
+    emit seeked(m_clockBase);
 }
 
 void Backend::seekBy(qint64 ms) {
@@ -560,13 +646,51 @@ void Backend::toggleMute() {
 }
 
 void Backend::toggleShuffle() {
-    m_shuffle = !m_shuffle;
-    emit modeChanged();
+    setShuffle(!m_shuffle);
 }
 
 void Backend::cycleRepeat() {
-    m_repeat = (m_repeat + 1) % 3;
+    setRepeat((m_repeat + 1) % 3);
+}
+
+void Backend::setShuffle(bool shuffle) {
+    if (shuffle == m_shuffle)
+        return;
+    m_shuffle = shuffle;
     emit modeChanged();
+}
+
+void Backend::setRepeat(int repeat) {
+    repeat = std::clamp(repeat, 0, 2);
+    if (repeat == m_repeat)
+        return;
+    m_repeat = repeat;
+    emit modeChanged();
+}
+
+void Backend::cycleVisualizer() {
+    setVisualizerStyle((m_visualizerStyle + 1) % 3);
+}
+
+void Backend::setVisualizerStyle(int style) {
+    style = std::clamp(style, 0, 2);
+    if (style == m_visualizerStyle)
+        return;
+    m_visualizerStyle = style;
+    emit modeChanged();
+}
+
+void Backend::stop() {
+    m_player.stop();
+    m_buffers.clear();
+}
+
+QString Backend::playbackState() const {
+    switch (m_player.playbackState()) {
+    case QMediaPlayer::PlayingState: return "Playing";
+    case QMediaPlayer::PausedState: return "Paused";
+    default: return "Stopped";
+    }
 }
 
 // Runs about thirty times a second: feed the analyzer the audio that has just
