@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QList>
+#include <QElapsedTimer>
 #include <QLocalServer>
 #include <QObject>
 #include <QVariantList>
@@ -46,5 +47,6 @@ private:
     QByteArray m_lastState, m_lastTrack;
     // Declared last so it is destroyed first: its connected sockets announce
     // that they disconnected while it goes, and that must find m_clients alive.
+    QElapsedTimer m_lastLevels;
     QLocalServer m_server;
 };

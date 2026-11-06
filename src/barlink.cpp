@@ -108,6 +108,10 @@ void BarLink::sendState() {
 }
 
 void BarLink::sendLevels() {
-    if (!m_clients.isEmpty())
-        broadcast(encodeLevels(m_backend->levels(), m_bars).toUtf8());
+    // A bar draws a handful of pixels, so about thirty updates a second is
+    // plenty, however fast the window's own visualizer runs.
+    if (m_clients.isEmpty() || (m_lastLevels.isValid() && m_lastLevels.elapsed() < 30))
+        return;
+    m_lastLevels.restart();
+    broadcast(encodeLevels(m_backend->levels(), m_bars).toUtf8());
 }
