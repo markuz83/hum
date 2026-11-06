@@ -111,6 +111,12 @@ private slots:
         QVERIFY(Backend::parseProbe("not json").title.isEmpty());
     }
 
+    void probeReadsTheLength()
+    {
+        QCOMPARE(Backend::parseProbe(R"({"format": {"duration": "273.720000", "tags": {}}})").seconds, 274);
+        QCOMPARE(Backend::parseProbe(R"({"format": {"tags": {}}})").seconds, 0);
+    }
+
     void foldersStandInForMissingTags()
     {
         auto tags = Backend::fallbackTags("Bowie/Low/Warszawa");
@@ -171,6 +177,9 @@ private slots:
         ready(backend, dir, {});
         QCOMPARE(backend.artists(), QStringList({"Abe", "Zed"}));
         QCOMPARE(backend.titles(), QStringList({"01  Other", "01  First", "02  Second"}));
+        // Each test file is a short tone, so every title has a length.
+        for (const QVariant &seconds : backend.titleSeconds())
+            QVERIFY(seconds.toInt() > 0);
 
         // A second run reads the cache and gets the same answer.
         QVERIFY(QFileInfo::exists(dir.path() + "/.cache/tags.json"));

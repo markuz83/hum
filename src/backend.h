@@ -25,6 +25,8 @@ class Backend : public QObject {
     Q_PROPERTY(QStringList artists READ artists NOTIFY browserChanged)
     Q_PROPERTY(QStringList albums READ albums NOTIFY browserChanged)
     Q_PROPERTY(QStringList titles READ titles NOTIFY browserChanged)
+    // Length in seconds of each title in the list, 0 when unknown.
+    Q_PROPERTY(QVariantList titleSeconds READ titleSeconds NOTIFY browserChanged)
     Q_PROPERTY(int artistRow READ artistRow NOTIFY browserChanged)
     Q_PROPERTY(int albumRow READ albumRow NOTIFY browserChanged)
     Q_PROPERTY(int currentRow READ currentRow NOTIFY currentChanged)
@@ -70,6 +72,7 @@ public:
     QStringList artists() const { return m_artistValues; }
     QStringList albums() const { return m_albumValues; }
     QStringList titles() const;
+    QVariantList titleSeconds() const;
     int artistRow() const { return m_allArtists ? 0 : int(m_artistValues.indexOf(m_artistSel)) + 1; }
     int albumRow() const { return m_allAlbums ? 0 : int(m_albumValues.indexOf(m_albumSel)) + 1; }
     int currentRow() const;
@@ -110,6 +113,7 @@ public:
     struct Tags {
         QString artist, album, title;
         int track = 0, disc = 0;
+        int seconds = 0;  // length, rounded; 0 when unknown
     };
     struct TagResult {
         QHash<QString, Tags> tags;
@@ -209,6 +213,7 @@ private:
         QString name;  // path under the library, without the extension
         QString artist, album, title;
         int track = 0, disc = 0;
+        int seconds = 0;
     };
 
     void loadState();

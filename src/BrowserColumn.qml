@@ -9,6 +9,8 @@ Item {
 
     property string heading
     property var model: []
+    // Optional text drawn dim at the right of each row, such as a length.
+    property var trailing: []
     property bool active: false
     // The row that is playing, drawn in the accent color; -1 for none.
     property int playingIndex: -1
@@ -61,7 +63,20 @@ Item {
                            : rowHover.hovered ? theme.raised : "transparent"
                 }
                 Label {
-                    anchors.fill: parent
+                    id: rowTime
+                    anchors.right: parent.right
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: column.trailing[index] ?? ""
+                    color: theme.dim
+                    font.pixelSize: 13
+                }
+                Label {
+                    id: rowText
+                    anchors.left: parent.left
+                    anchors.right: rowTime.text === "" ? parent.right : rowTime.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
                     verticalAlignment: Text.AlignVCenter
@@ -71,6 +86,10 @@ Item {
                     font.bold: playingRow
                 }
                 HoverHandler { id: rowHover }
+                // A name that doesn't fit is shown whole after a short hover.
+                ToolTip.visible: rowHover.hovered && rowText.truncated
+                ToolTip.delay: 600
+                ToolTip.text: rowText.text
                 TapHandler {
                     onTapped: {
                         column.clicked()

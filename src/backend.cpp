@@ -390,6 +390,8 @@ Backend::Tags Backend::parseProbe(const QByteArray &json) {
     result.album = tags.value("album");
     result.track = tags.value("track", tags.value("tracknumber")).section('/', 0, 0).toInt();
     result.disc = tags.value("disc", tags.value("discnumber")).section('/', 0, 0).toInt();
+    // ffprobe reports the length as a string of seconds with decimals.
+    result.seconds = qRound(QJsonDocument::fromJson(json).object().value("format").toObject().value("duration").toString().toDouble());
     return result;
 }
 
@@ -426,6 +428,7 @@ Backend::TagResult Backend::readTags(const QStringList &paths, const QString &ca
         tags.title = o.value("t").toString();
         tags.track = o.value("n").toInt();
         tags.disc = o.value("d").toInt();
+        tags.seconds = o.value("u").toInt();
         return tags;
     };
 
@@ -434,7 +437,7 @@ Backend::TagResult Backend::readTags(const QStringList &paths, const QString &ca
     for (const auto &path : paths) {
         const QFileInfo info(path);
         const QJsonObject entry = cache.value(path).toObject();
-        if (entry.value("s").toDouble(-1) == double(info.size()) &&
+        if (entry.contains("u") && entry.value("s").toDouble(-1) == double(info.size()) &&
             entry.value("m").toDouble(-1) == double(info.lastModified().toMSecsSinceEpoch()))
             result.tags.insert(path, fromJson(entry));
         else
@@ -444,7 +447,7 @@ Backend::TagResult Backend::readTags(const QStringList &paths, const QString &ca
     if (!todo.isEmpty()) {
         const auto probed = QtConcurrent::blockingMapped<QList<Tags>>(todo, [ffprobe](const QString &path) {
             QProcess process;
-            process.start(ffprobe, {"-v", "error", "-show_entries", "format_tags", "-of", "json", path});
+            process.start(ffprobe, {"-v", "error", "-show_entries", "format=duration:format_tags", "-of", "json", path});
             if (!process.waitForFinished(15000)) {
                 process.kill();
                 return Tags();
@@ -460,7 +463,7 @@ Backend::TagResult Backend::readTags(const QStringList &paths, const QString &ca
             cache.insert(todo[i], QJsonObject{{"s", double(info.size())},
                                               {"m", double(info.lastModified().toMSecsSinceEpoch())},
                                               {"a", tags.artist}, {"b", tags.album}, {"t", tags.title},
-                                              {"n", tags.track}, {"d", tags.disc}});
+                                              {"n", tags.track}, {"d", tags.disc}, {"u", tags.seconds}});
         }
         // Forget files that are gone, then save beside the target and rename.
         const QSet<QString> present(paths.begin(), paths.end());
@@ -557,6 +560,7 @@ void Backend::finishReading(const TagResult &result) {
         track.title = tags.title.isEmpty() ? guess.title : tags.title;
         track.track = tags.track;
         track.disc = tags.disc;
+        track.seconds = tags.seconds;
     }
     sortTracks();
 }
@@ -666,6 +670,13 @@ void Backend::setFilter(const QString &filter) {
 }
 
 // A track number in front, when the tags have one, like a record's sleeve.
+QVariantList Backend::titleSeconds() const {
+    QVariantList lengths;
+    for (int index : m_visible)
+        lengths << m_tracks[index].seconds;
+    return lengths;
+}
+
 QStringList Backend::titles() const {
     QStringList names;
     for (int index : m_visible) {

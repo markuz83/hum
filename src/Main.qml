@@ -566,6 +566,7 @@ ApplicationWindow {
                             Layout.preferredWidth: 1.4
                             heading: qsTr("Title")
                             model: backend.titles
+            trailing: backend.titleSeconds.map(s => s > 0 ? win.clock(s * 1000) : "")
                             active: win.activeColumn === 2
                             playingIndex: backend.currentRow
                             onClicked: win.activeColumn = 2
