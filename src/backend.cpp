@@ -709,7 +709,13 @@ void Backend::loadCurrent() {
     m_artist = m_tracks[m_current].artist;
     m_album = m_tracks[m_current].album;
     updateCover({});
-    m_player.setSource(QUrl::fromLocalFile(m_tracks[m_current].path));
+    const QUrl url = QUrl::fromLocalFile(m_tracks[m_current].path);
+    const bool sameSource = m_player.source() == url;
+    m_player.setSource(url);
+    // Setting the source it already has changes nothing, so no metadata
+    // signal follows and the cover cleared above would never come back.
+    if (sameSource)
+        readMetadata();
     emit currentChanged();
 }
 
