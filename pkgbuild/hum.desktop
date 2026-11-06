@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Hum
+Name[da]=Hum
+Comment=Play your music with a visualizer
+Comment[da]=Afspil din musik med en visualisering
+Exec=hum %f
+Icon=hum
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+MimeType=audio/mpeg;audio/ogg;audio/flac;audio/x-wav;audio/mp4;audio/opus;audio/x-vorbis+ogg;
+StartupWMClass=hum
