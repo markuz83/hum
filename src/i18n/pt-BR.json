@@ -66,5 +66,8 @@
   "Move in the queue": "Mover na fila",
   "Undo / redo": "Desfazer / refazer",
   "Resize the queue pane": "Redimensionar a fila",
-  "Reset pane sizes": "Redefinir tamanho dos painéis"
+  "Reset pane sizes": "Redefinir tamanho dos painéis",
+  "Visualizer refresh: %1": "Atualização do visualizador: %1",
+  "matches display (%1 Hz)": "igual à tela (%1 Hz)",
+  "Visualizer refresh rate": "Taxa de atualização do visualizador"
 }

@@ -19,6 +19,7 @@ Rectangle {
         ["S", qsTr("Shuffle")],
         ["R", qsTr("Repeat")],
         ["V", qsTr("Change visualizer")],
+        ["F", qsTr("Visualizer refresh rate")],
         ["J K ↑ ↓", qsTr("Move in the list")],
         ["H L Tab", qsTr("Switch column")],
         ["Enter", qsTr("Play the selected track")],

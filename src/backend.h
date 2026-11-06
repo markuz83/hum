@@ -47,6 +47,12 @@ class Backend : public QObject {
     Q_PROPERTY(bool muted READ muted NOTIFY volumeChanged)
     Q_PROPERTY(bool shuffle READ shuffle WRITE setShuffle NOTIFY modeChanged)
     Q_PROPERTY(int repeat READ repeat WRITE setRepeat NOTIFY modeChanged)
+    // Visualizer updates per second; 0 follows the display's refresh rate.
+    Q_PROPERTY(int visualizerRate READ visualizerRate WRITE setVisualizerRate NOTIFY modeChanged)
+    // The display's refresh rate in Hz, reported by the window.
+    Q_PROPERTY(double refreshRate READ refreshRate WRITE setRefreshRate NOTIFY modeChanged)
+    // True while the bars are moving, so a frame-synced driver knows to run.
+    Q_PROPERTY(bool animating READ animating NOTIFY animatingChanged)
     Q_PROPERTY(int visualizerStyle READ visualizerStyle WRITE setVisualizerStyle NOTIFY modeChanged)
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY browserChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
@@ -88,6 +94,9 @@ public:
     QString currentPath() const { return m_current >= 0 ? m_tracks[m_current].path : QString(); }
     // "Playing", "Paused" or "Stopped", as MPRIS names them.
     QString playbackState() const;
+    int visualizerRate() const { return m_visualizerRate; }
+    double refreshRate() const { return m_refreshRate; }
+    bool animating() const { return m_animating; }
     int visualizerStyle() const { return m_visualizerStyle; }
     bool canGoNext() const { return !m_queue.isEmpty() || !m_visible.isEmpty(); }
     QVariantList queue() const;
@@ -166,6 +175,11 @@ public:
     void setShuffle(bool shuffle);
     void setRepeat(int repeat);
     void setVisualizerStyle(int style);
+    void setVisualizerRate(int hz);
+    void setRefreshRate(double hz);
+    Q_INVOKABLE void cycleVisualizerRate();
+    // Called once per display frame while the rate follows the display.
+    Q_INVOKABLE void frame();
     void setVolume(qreal volume);
     void setFilter(const QString &filter);
 
@@ -173,6 +187,7 @@ signals:
     void browserChanged();
     void coverChanged();
     void queueChanged();
+    void animatingChanged();
     void layoutChanged();
     void readingChanged();
     void currentChanged();
@@ -218,6 +233,9 @@ private:
     void readMetadata();
     void advanceAfterEnd();
     void tick();
+    void startFrames();
+    void stopFrames();
+    void configureFrames();
 
     QList<Track> m_tracks;
     QList<int> m_visible;
@@ -244,6 +262,10 @@ private:
     bool m_reading = false;
     bool m_scanning = false, m_shuffle = false;
     int m_visualizerStyle = 0;
+    int m_visualizerRate = 0;
+    double m_refreshRate = 60;
+    bool m_animating = false;
+    QElapsedTimer m_lastTick;
     int m_repeat = RepeatOff;
     qreal m_volume = 0.8;
 

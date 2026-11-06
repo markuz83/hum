@@ -36,6 +36,19 @@ ApplicationWindow {
     // The empty library (and the scan before it) replaces the three columns.
     readonly property bool emptyLibrary: backend.libraryCount === 0 && !backend.scanning
     // Errors fade after a while and can be dismissed; a new one shows again.
+    // Follow the display this window is on, and show what F chose for a moment.
+    property bool rateNoticeVisible: false
+    readonly property string rateNoticeText: qsTr("Visualizer refresh: %1").arg(
+        backend.visualizerRate === 0
+            ? qsTr("matches display (%1 Hz)").arg(Math.round(backend.refreshRate))
+            : qsTr("%1 Hz").arg(backend.visualizerRate))
+    Binding { target: backend; property: "refreshRate"; value: win.screen ? win.screen.refreshRate : 60 }
+    Timer { id: rateNotice; interval: 2000; onTriggered: win.rateNoticeVisible = false }
+    // One tick per frame the window actually draws, while the bars move.
+    FrameAnimation {
+        running: backend.animating && backend.visualizerRate === 0
+        onTriggered: backend.frame()
+    }
     property bool errorShown: backend.error.length > 0
     Connections {
         target: backend
@@ -148,6 +161,10 @@ ApplicationWindow {
     Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleMute() }
     Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleShuffle() }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleRepeat() }
+    Shortcut {
+        sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing
+        onActivated: { backend.cycleVisualizerRate(); win.rateNoticeVisible = true; rateNotice.restart() }
+    }
     Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleVisualizer() }
     Shortcut { sequences: ["J", "Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(1) }
     Shortcut { sequences: ["K", "Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(-1) }
@@ -305,6 +322,15 @@ ApplicationWindow {
                         style: backend.visualizerStyle
                         color: theme.accent
                         radius: Math.min(4, theme.radius)
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            visible: win.rateNoticeVisible
+                            text: win.rateNoticeText
+                            color: theme.dim
+                            font.pixelSize: 13
+                        }
                     }
 
                     // Seek bar: click or drag anywhere along it.

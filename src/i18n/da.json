@@ -65,5 +65,8 @@
   "Move in the queue": "Flyt i køen",
   "Undo / redo": "Fortryd / gentag",
   "Resize the queue pane": "Tilpas størrelsen på køen",
-  "Reset pane sizes": "Nulstil panelstørrelser"
+  "Reset pane sizes": "Nulstil panelstørrelser",
+  "Visualizer refresh: %1": "Visualiseringens opdatering: %1",
+  "matches display (%1 Hz)": "følger skærmen (%1 Hz)",
+  "Visualizer refresh rate": "Visualiseringens opdateringsfrekvens"
 }

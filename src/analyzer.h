@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include <QAudioBuffer>
 #include <QVector>
 
@@ -14,6 +16,9 @@ public:
     static constexpr int FftSize = 2048;
 
     explicit Analyzer(int bands = 48, int framerate = 60);
+
+    // Smoothing is tuned per frame, so it needs to know how often it is asked.
+    void setFramerate(int framerate) { m_framerate = std::clamp(framerate, 10, 1000); }
 
     int bands() const { return m_bands; }
     // Lower edge of a band in Hz, so tests and callers can reason about pitch.

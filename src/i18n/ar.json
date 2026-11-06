@@ -69,5 +69,8 @@
   "Move in the queue": "التحرك في قائمة الانتظار",
   "Undo / redo": "تراجع / إعادة",
   "Resize the queue pane": "تغيير حجم قائمة الانتظار",
-  "Reset pane sizes": "إعادة ضبط أحجام اللوحات"
+  "Reset pane sizes": "إعادة ضبط أحجام اللوحات",
+  "Visualizer refresh: %1": "معدل تحديث المؤثر المرئي: %1",
+  "matches display (%1 Hz)": "مطابق للشاشة (%1 هرتز)",
+  "Visualizer refresh rate": "معدل تحديث المؤثر المرئي"
 }

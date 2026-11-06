@@ -576,6 +576,37 @@ private slots:
         QCOMPARE(backend.queueRatio(), 0.15);
     }
 
+    void visualizerRateCyclesAndIsSaved()
+    {
+        QTemporaryDir dir;
+        const QString state = dir.path() + "/state.json";
+        {
+            Backend backend;
+            backend.setStateFile(state);
+            backend.setVolume(0);
+            QCOMPARE(backend.visualizerRate(), 0);  // follows the display by default
+            backend.cycleVisualizerRate();
+            QCOMPARE(backend.visualizerRate(), 30);
+            backend.cycleVisualizerRate();
+            QCOMPARE(backend.visualizerRate(), 60);
+            backend.setVisualizerRate(100);  // a custom rate steps up to the next preset
+            backend.cycleVisualizerRate();
+            QCOMPARE(backend.visualizerRate(), 120);
+            backend.setVisualizerRate(240);
+            backend.cycleVisualizerRate();
+            QCOMPARE(backend.visualizerRate(), 0);  // and wraps back to the display
+            backend.setVisualizerRate(5000);
+            QCOMPARE(backend.visualizerRate(), 360);
+            backend.setVisualizerRate(3);
+            QCOMPARE(backend.visualizerRate(), 10);
+            backend.setVisualizerRate(75);
+            backend.saveState();
+        }
+        Backend again;
+        again.setStateFile(state);
+        QCOMPARE(again.visualizerRate(), 75);
+    }
+
     void folderCoverFindsConventionalNamesIgnoringCase()
     {
         auto folderWith = [&](const QStringList &files) {

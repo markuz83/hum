@@ -66,5 +66,8 @@
   "Move in the queue": "Déplacer dans la file d'attente",
   "Undo / redo": "Annuler / rétablir",
   "Resize the queue pane": "Redimensionner la file d'attente",
-  "Reset pane sizes": "Réinitialiser la taille des panneaux"
+  "Reset pane sizes": "Réinitialiser la taille des panneaux",
+  "Visualizer refresh: %1": "Rafraîchissement du visualiseur : %1",
+  "matches display (%1 Hz)": "celui de l’écran (%1 Hz)",
+  "Visualizer refresh rate": "Fréquence du visualiseur"
 }

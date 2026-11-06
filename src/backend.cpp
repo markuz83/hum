@@ -58,8 +58,7 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
         if (playing()) {
             m_clockBase = m_player.position();
             m_clock.restart();
-            if (!m_frames.isActive())
-                m_frames.start();
+            startFrames();
         }
     });
     connect(&m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
@@ -87,9 +86,16 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
         connect(this, signal, this, &Backend::scheduleSave);
     connect(qApp, &QCoreApplication::aboutToQuit, this, &Backend::saveState);
 
-    m_frames.setInterval(16);
     m_frames.setTimerType(Qt::PreciseTimer);
-    connect(&m_frames, &QTimer::timeout, this, &Backend::tick);
+    configureFrames();
+    connect(&m_frames, &QTimer::timeout, this, [this] {
+        // Following the display, the window's frame clock drives the bars and
+        // this timer only acts when no frame has come for a while, which is
+        // the window being hidden.
+        if (m_visualizerRate == 0 && m_lastTick.isValid() && m_lastTick.elapsed() < 50)
+            return;
+        tick();
+    });
     connect(&m_watcher, &QFutureWatcher<QStringList>::finished, this, [this] { finishScan(m_watcher.result()); });
     connect(&m_tagWatcher, &QFutureWatcher<TagResult>::finished, this, [this] { finishReading(m_tagWatcher.result()); });
     m_cacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/tags.json";
@@ -267,6 +273,7 @@ void Backend::loadState() {
     setShuffle(state.value("shuffle").toBool());
     setRepeat(state.value("repeat").toInt());
     setVisualizerStyle(state.value("visualizer").toInt());
+    setVisualizerRate(state.value("visualizerRate").toInt());
     m_resumePath = state.value("track").toString();
     m_resumePosition = qint64(state.value("position").toDouble());
     m_savedLibrary = state.value("library").toString();
@@ -288,7 +295,7 @@ void Backend::saveState() {
     if (m_stateFile.isEmpty())
         return;
     QJsonObject state{{"volume", m_volume}, {"shuffle", m_shuffle}, {"repeat", m_repeat},
-                      {"visualizer", m_visualizerStyle}, {"track", currentPath()},
+                      {"visualizer", m_visualizerStyle}, {"visualizerRate", m_visualizerRate}, {"track", currentPath()},
                       {"position", double(m_resumeAt >= 0 ? m_resumeAt : m_player.position())},
                       {"library", m_savedLibrary}, {"queueRatio", m_queueRatio},
                       {"queue", QJsonArray::fromStringList(m_queue)}};
@@ -940,6 +947,77 @@ void Backend::setVisualizerStyle(int style) {
     emit modeChanged();
 }
 
+// Rates people can step through with one key; the state file takes any value.
+static const QList<int> RatePresets{0, 30, 60, 120, 144, 240};
+
+void Backend::cycleVisualizerRate() {
+    // The next preset above the current rate, wrapping back to the display.
+    // The display (0) sorts first, so a custom rate lands on the next one up.
+    for (int preset : RatePresets) {
+        if (preset != 0 && preset > m_visualizerRate && m_visualizerRate != 0) {
+            setVisualizerRate(preset);
+            return;
+        }
+    }
+    setVisualizerRate(m_visualizerRate == 0 ? RatePresets.at(1) : 0);
+}
+
+void Backend::setVisualizerRate(int hz) {
+    hz = hz <= 0 ? 0 : std::clamp(hz, 10, 360);
+    if (hz == m_visualizerRate)
+        return;
+    m_visualizerRate = hz;
+    configureFrames();
+    emit modeChanged();
+    scheduleSave();
+}
+
+void Backend::setRefreshRate(double hz) {
+    if (hz < 10 || qFuzzyCompare(hz, m_refreshRate))
+        return;
+    m_refreshRate = hz;
+    configureFrames();
+    emit modeChanged();
+}
+
+// A fixed rate is a precise timer. Following the display, the window drives
+// frame() from its own frame clock and this timer is only a slow backstop, so
+// audio keeps draining while the window is hidden and draws nothing.
+void Backend::configureFrames() {
+    const bool running = m_frames.isActive();
+    if (m_visualizerRate > 0) {
+        m_frames.setInterval(std::max(1, qRound(1000.0 / m_visualizerRate)));
+        m_analyzer.setFramerate(m_visualizerRate);
+    } else {
+        m_frames.setInterval(50);
+        m_analyzer.setFramerate(qRound(m_refreshRate));
+    }
+    if (running)
+        m_frames.start();
+}
+
+void Backend::startFrames() {
+    if (!m_frames.isActive())
+        m_frames.start();
+    if (!m_animating) {
+        m_animating = true;
+        emit animatingChanged();
+    }
+}
+
+void Backend::stopFrames() {
+    m_frames.stop();
+    if (m_animating) {
+        m_animating = false;
+        emit animatingChanged();
+    }
+}
+
+void Backend::frame() {
+    if (m_visualizerRate == 0)
+        tick();
+}
+
 void Backend::stop() {
     m_player.stop();
     m_buffers.clear();
@@ -953,9 +1031,10 @@ QString Backend::playbackState() const {
     }
 }
 
-// Runs about sixty times a second: feed the analyzer the audio that has just
+// Runs once per visualizer frame: feed the analyzer the audio that has just
 // reached the speakers, and publish the bar heights.
 void Backend::tick() {
+    m_lastTick.restart();
     QVector<float> levels;
     if (playing()) {
         // The player reports its position in coarse steps, which would feed the
@@ -968,7 +1047,7 @@ void Backend::tick() {
     } else {
         levels = m_analyzer.decay();
         if (std::all_of(levels.begin(), levels.end(), [](float v) { return v == 0.0f; }))
-            m_frames.stop();
+            stopFrames();
     }
 
     QVariantList list;

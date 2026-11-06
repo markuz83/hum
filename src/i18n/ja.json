@@ -64,5 +64,8 @@
   "Move in the queue": "キュー内で移動",
   "Undo / redo": "元に戻す / やり直す",
   "Resize the queue pane": "キューのサイズを変更",
-  "Reset pane sizes": "パネルサイズをリセット"
+  "Reset pane sizes": "パネルサイズをリセット",
+  "Visualizer refresh: %1": "ビジュアライザーの更新: %1",
+  "matches display (%1 Hz)": "ディスプレイに合わせる (%1 Hz)",
+  "Visualizer refresh rate": "ビジュアライザーの更新頻度"
 }
