@@ -28,13 +28,25 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
             m_buffers.dequeue();
     });
 
-    connect(&m_player, &QMediaPlayer::positionChanged, this, &Backend::positionChanged);
+    connect(&m_player, &QMediaPlayer::positionChanged, this, [this](qint64 position) {
+        // Never step the clock backwards for a small report lag, only for a real seek.
+        const qint64 estimate = m_clockBase + m_clock.elapsed();
+        if (position > estimate || estimate - position > 250) {
+            m_clockBase = position;
+            m_clock.restart();
+        }
+        emit positionChanged();
+    });
     connect(&m_player, &QMediaPlayer::durationChanged, this, &Backend::durationChanged);
     connect(&m_player, &QMediaPlayer::metaDataChanged, this, &Backend::readMetadata);
     connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this] {
         emit playingChanged();
-        if (playing() && !m_frames.isActive())
-            m_frames.start();
+        if (playing()) {
+            m_clockBase = m_player.position();
+            m_clock.restart();
+            if (!m_frames.isActive())
+                m_frames.start();
+        }
     });
     connect(&m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
         if (status == QMediaPlayer::EndOfMedia)
@@ -165,6 +177,8 @@ void Backend::play(int row) {
 }
 
 void Backend::loadCurrent() {
+    m_clockBase = 0;
+    m_clock.restart();
     m_buffers.clear();
     m_analyzer.clear();
     m_title = m_tracks[m_current].name.section('/', -1);
@@ -235,7 +249,9 @@ void Backend::advanceAfterEnd() {
 
 void Backend::seek(qint64 ms) {
     m_buffers.clear();
-    m_player.setPosition(std::clamp<qint64>(ms, 0, std::max<qint64>(0, duration())));
+    m_clockBase = std::clamp<qint64>(ms, 0, std::max<qint64>(0, duration()));
+    m_clock.restart();
+    m_player.setPosition(m_clockBase);
 }
 
 void Backend::seekBy(qint64 ms) {
@@ -274,13 +290,13 @@ void Backend::cycleRepeat() {
 void Backend::tick() {
     QVector<float> levels;
     if (playing()) {
-        const qint64 now = m_player.position() * 1000;  // buffer times are in microseconds
-        bool fed = false;
-        while (!m_buffers.isEmpty() && m_buffers.head().startTime() <= now) {
+        // The player reports its position in coarse steps, which would feed the
+        // analyzer in bursts and make the bars stutter, so interpolate between
+        // reports with a steady clock. Buffer times are in microseconds.
+        const qint64 now = (m_clockBase + m_clock.elapsed()) * 1000;
+        while (!m_buffers.isEmpty() && m_buffers.head().startTime() <= now)
             m_analyzer.push(m_buffers.dequeue());
-            fed = true;
-        }
-        levels = fed ? m_analyzer.compute() : m_analyzer.decay();
+        levels = m_analyzer.compute();
     } else {
         levels = m_analyzer.decay();
         if (std::all_of(levels.begin(), levels.end(), [](float v) { return v == 0.0f; }))

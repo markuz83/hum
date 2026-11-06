@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QQueue>
 #include <QStringList>
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QVariantList>
 
@@ -118,6 +119,8 @@ private:
     QQueue<QAudioBuffer> m_buffers;
     Analyzer m_analyzer;
     QTimer m_frames;
+    QElapsedTimer m_clock;
+    qint64 m_clockBase = 0;
     QVariantList m_levelList;
     QFutureWatcher<QStringList> m_watcher;
 };
