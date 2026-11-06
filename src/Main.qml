@@ -99,6 +99,7 @@ ApplicationWindow {
     Shortcut { sequences: ["L", "Tab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.min(2, win.activeColumn + 1) }
     Shortcut { sequences: ["H", "Backtab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.max(0, win.activeColumn - 1) }
     Shortcut { sequences: ["Return", "Enter"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activate() }
+    Shortcut { sequence: "O"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.chooseLibrary() }
     Shortcut { sequence: "/"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: filter.forceActiveFocus() }
 
     // Right-to-left languages mirror the window; the Translator sets the

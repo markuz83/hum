@@ -1,5 +1,8 @@
 {
-  "%n tracks": { "one": "%n nummer", "other": "%n numre" },
+  "%n tracks": {
+    "one": "%n nummer",
+    "other": "%n numre"
+  },
   "Filter": "Filtrer",
   "Artist": "Kunstner",
   "Album": "Album",
@@ -37,5 +40,9 @@
   "The music folder %1 doesn't exist": "Musikmappen %1 findes ikke",
   "No music found in %1": "Ingen musik fundet i %1",
   "Plays your music with a visualizer.": "Afspiller din musik med en visualisering.",
-  "A music folder, or a file to start playing.": "En musikmappe eller en fil, der skal afspilles."
+  "A music folder, or a file to start playing.": "En musikmappe eller en fil, der skal afspilles.",
+  "Choose a music folder": "Vælg en musikmappe",
+  "Choose music folder": "Vælg musikmappe",
+  "Couldn't open the folder chooser: %1": "Kunne ikke åbne mappevælgeren: %1",
+  "no D-Bus session": "ingen D-Bus-session"
 }

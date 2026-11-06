@@ -6,5 +6,13 @@
         <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
         <file alias="i18n/en.json">i18n/en.json</file>
         <file alias="i18n/da.json">i18n/da.json</file>
+        <file alias="i18n/ar.json">i18n/ar.json</file>
+        <file alias="i18n/de.json">i18n/de.json</file>
+        <file alias="i18n/es.json">i18n/es.json</file>
+        <file alias="i18n/fr.json">i18n/fr.json</file>
+        <file alias="i18n/ja.json">i18n/ja.json</file>
+        <file alias="i18n/pt-BR.json">i18n/pt-BR.json</file>
+        <file alias="i18n/ru.json">i18n/ru.json</file>
+        <file alias="i18n/zh-CN.json">i18n/zh-CN.json</file>
     </qresource>
 </RCC>

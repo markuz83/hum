@@ -9,12 +9,15 @@ HEADERS += \
     src/backend.h \
     src/coverprovider.h \
     src/mpris.h \
+    src/filepicker.h \
+    src/portalfilepicker.h \
     src/theme.h \
     src/translator.h
 
 SOURCES += \
     src/main.cpp \
     src/mpris.cpp \
+    src/portalfilepicker.cpp \
     src/analyzer.cpp \
     src/backend.cpp \
     src/theme.cpp \

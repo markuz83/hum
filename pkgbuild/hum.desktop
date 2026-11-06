@@ -1,9 +1,16 @@
 [Desktop Entry]
 Type=Application
 Name=Hum
-Name[da]=Hum
 Comment=Play your music with a visualizer
 Comment[da]=Afspil din musik med en visualisering
+Comment[de]=Spiele deine Musik mit einer Visualisierung ab
+Comment[es]=Reproduce tu música con un visualizador
+Comment[fr]=Lisez votre musique avec un visualiseur
+Comment[pt_BR]=Toque sua música com um visualizador
+Comment[ru]=Воспроизводите музыку с визуализацией
+Comment[ja]=ビジュアライザー付きで音楽を再生
+Comment[zh_CN]=以可视化效果播放你的音乐
+Comment[ar]=شغّل موسيقاك مع مؤثر مرئي
 Exec=hum %f
 Icon=hum
 Terminal=false

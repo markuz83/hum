@@ -14,6 +14,7 @@
 #include <QVariantList>
 
 #include "analyzer.h"
+#include "filepicker.h"
 
 // The music library, the player, and the numbers behind the visualizer.
 class Backend : public QObject {
@@ -116,6 +117,9 @@ public:
     // A folder becomes the library; a file plays inside its own folder.
     // Without a path the library is the user's Music folder.
     Q_INVOKABLE void open(const QString &path = {});
+    // Opens the desktop's folder chooser and makes the choice the library.
+    Q_INVOKABLE void chooseLibrary();
+    void setFilePicker(FilePicker *picker);
     Q_INVOKABLE void selectArtist(int row);
     Q_INVOKABLE void selectAlbum(int row);
     Q_INVOKABLE void play(int row);
@@ -181,6 +185,7 @@ private:
     QString m_artistSel, m_albumSel;
     int m_current = -1;    // index into m_tracks, -1 when nothing is loaded
     QString m_library, m_filter, m_error, m_title, m_artist, m_album, m_pending, m_cacheFile;
+    FilePicker *m_picker = nullptr;
     QString m_stateFile, m_resumePath, m_savedLibrary;
     qint64 m_resumePosition = 0;
     qint64 m_resumeAt = -1;  // where to seek once the resumed track has loaded

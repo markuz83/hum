@@ -20,6 +20,7 @@ Rectangle {
         ["H L Tab", qsTr("Switch column")],
         ["Enter", qsTr("Play the selected track")],
         ["/", qsTr("Filter the list")],
+        ["O", qsTr("Choose music folder")],
         ["S", qsTr("Shuffle")],
         ["R", qsTr("Repeat")],
         ["V", qsTr("Change visualizer")],

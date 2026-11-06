@@ -92,6 +92,25 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
     m_cacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/tags.json";
 }
 
+void Backend::setFilePicker(FilePicker *picker) {
+    m_picker = picker;
+    connect(picker, &FilePicker::picked, this, [this](const QString &path) {
+        // A folder chosen on purpose is remembered, unlike one passed on the
+        // command line for a single run.
+        m_savedLibrary = path;
+        scheduleSave();
+        open(path);
+    });
+    connect(picker, &FilePicker::failed, this, [this](const QString &message) {
+        setError(tr("Couldn't open the folder chooser: %1").arg(message));
+    });
+}
+
+void Backend::chooseLibrary() {
+    if (m_picker)
+        m_picker->pickFolder(tr("Choose a music folder"));
+}
+
 void Backend::setStateFile(const QString &path) {
     m_stateFile = path;
     loadState();

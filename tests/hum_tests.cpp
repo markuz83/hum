@@ -10,6 +10,7 @@
 #include "analyzer.h"
 #include "backend.h"
 #include "mpris.h"
+#include "filepicker.h"
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
@@ -23,6 +24,15 @@ public:
     QList<QVariantMap> changes;
 public slots:
     void onChanged(const QString &, const QVariantMap &changed, const QStringList &) { changes << changed; }
+};
+
+// Answers the folder chooser without a desktop.
+class FakePicker : public FilePicker {
+    Q_OBJECT
+public:
+    void pickFolder(const QString &) override { ++asked; if (!answer.isEmpty()) emit picked(answer); }
+    QString answer;
+    int asked = 0;
 };
 
 class HumTests : public QObject {
@@ -284,6 +294,41 @@ private slots:
         while (backend.scanning())
             scanned.wait(2000);
         QCOMPARE(backend.title(), QString("b"));
+    }
+
+    void chosenFolderBecomesTheLibraryAndIsRemembered()
+    {
+        QTemporaryDir home, music;
+        touch(music.path() + "/Artist/Album/song.mp3");
+        const QString state = home.path() + "/state.json";
+        FakePicker picker;
+        {
+            Backend backend;
+            backend.setStateFile(state);
+            backend.setCacheFile(home.path() + "/tags.json");
+            backend.setFilePicker(&picker);
+            // Cancelling changes nothing.
+            backend.chooseLibrary();
+            QCOMPARE(picker.asked, 1);
+            QVERIFY(backend.libraryPath().isEmpty());
+
+            picker.answer = music.path();
+            QSignalSpy scanned(&backend, &Backend::scanningChanged);
+            backend.chooseLibrary();
+            while (backend.scanning() || scanned.isEmpty())
+                scanned.wait(2000);
+            QCOMPARE(backend.libraryPath(), music.path());
+            backend.saveState();
+        }
+        // The next launch, with no folder given, opens the chosen one.
+        Backend again;
+        again.setStateFile(state);
+        again.setCacheFile(home.path() + "/tags.json");
+        QSignalSpy scanned(&again, &Backend::scanningChanged);
+        again.open();
+        while (again.scanning() || scanned.isEmpty())
+            scanned.wait(2000);
+        QCOMPARE(again.libraryPath(), music.path());
     }
 
     void withoutAStateFileNothingIsWritten()

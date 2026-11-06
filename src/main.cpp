@@ -13,6 +13,7 @@
 #include "backend.h"
 #include "coverprovider.h"
 #include "mpris.h"
+#include "portalfilepicker.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -48,6 +49,8 @@ int main(int argc, char *argv[]) {
     Backend backend;
     // Volume, shuffle, repeat, visualizer, and the last track come back next time.
     backend.setStateFile(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/state.json");
+    PortalFilePicker picker;
+    backend.setFilePicker(&picker);
     backend.open(parser.positionalArguments().value(0));
 
     // Media keys, `playerctl`, and desktop media widgets control Hum through this.
