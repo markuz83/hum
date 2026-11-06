@@ -105,19 +105,38 @@ private slots:
     void analyzerPeaksAtTheTone()
     {
         Analyzer analyzer;
-        QVector<float> tone(Analyzer::FftSize);
-        for (int i = 0; i < tone.size(); ++i)
-            tone[i] = 0.8f * std::sin(2.0 * M_PI * 1000.0 * i / 44100.0);
-        analyzer.push(tone.constData(), tone.size(), 44100);
-        QVector<float> levels;
-        for (int i = 0; i < 5; ++i)
-            levels = analyzer.compute();
+        const auto levels = settle(analyzer, 0.8f, 1000.0, 120);
 
         const int peak = int(std::max_element(levels.begin(), levels.end()) - levels.begin());
         QVERIFY(analyzer.bandFrequency(peak) <= 1000.0 * 1.1);
         QVERIFY(analyzer.bandFrequency(peak + 1) >= 1000.0 / 1.1);
         QVERIFY(levels[peak] > 0.5f);
         QVERIFY(levels[2] < 0.1f);
+    }
+
+    void analyzerLearnsItsSensitivity()
+    {
+        // A very quiet tone ends up as tall as a loud one, and neither clips.
+        Analyzer quiet, loud;
+        const auto quietLevels = settle(quiet, 0.02f, 1000.0, 400);
+        const auto loudLevels = settle(loud, 0.9f, 1000.0, 400);
+        QVERIFY(*std::max_element(quietLevels.begin(), quietLevels.end()) > 0.5f);
+        QVERIFY(*std::max_element(loudLevels.begin(), loudLevels.end()) <= 1.0f);
+    }
+
+    void analyzerFallsGradually()
+    {
+        Analyzer analyzer;
+        const auto before = settle(analyzer, 0.8f, 1000.0, 120);
+        const int peak = int(std::max_element(before.begin(), before.end()) - before.begin());
+        // Silence arrives; the bar eases down instead of dropping at once.
+        QVector<float> silence(Analyzer::FftSize, 0.0f);
+        analyzer.push(silence.constData(), silence.size(), 44100);
+        QVector<float> after;
+        for (int i = 0; i < 8; ++i)
+            after = analyzer.compute();
+        QVERIFY(after[peak] < before[peak] * 0.9f);
+        QVERIFY(after[peak] > 0.0f);
     }
 
     void analyzerDecaysToZero()
@@ -229,6 +248,20 @@ private:
             done.wait(2000);
     }
 
+
+    // Feeds a steady tone for a while, like a track playing, and returns the bars.
+    static QVector<float> settle(Analyzer &analyzer, float amplitude, double hz, int frames)
+    {
+        QVector<float> tone(Analyzer::FftSize);
+        for (int i = 0; i < tone.size(); ++i)
+            tone[i] = amplitude * std::sin(2.0 * M_PI * hz * i / 44100.0);
+        QVector<float> levels;
+        for (int i = 0; i < frames; ++i) {
+            analyzer.push(tone.constData(), tone.size(), 44100);
+            levels = analyzer.compute();
+        }
+        return levels;
+    }
 
     static void write(const QString &path, const QByteArray &contents)
     {
