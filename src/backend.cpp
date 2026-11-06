@@ -11,6 +11,7 @@
 #include <QSaveFile>
 #include <QSet>
 #include <QFileInfo>
+#include <QImageReader>
 #include <QMediaMetaData>
 #include <QRandomGenerator>
 #include <QStandardPaths>
@@ -735,22 +736,54 @@ void Backend::readMetadata() {
     emit currentChanged();
 }
 
-// Embedded art wins; otherwise a cover.jpg, folder.png and the like beside the
-// file. Art is kept at a size that stays sharp in the window without holding a
-// huge scan in memory.
+QString Backend::findFolderCover(const QString &folder) {
+    static const QStringList extensions{"jpg", "jpeg", "jfif", "png", "webp", "bmp", "gif", "tif", "tiff"};
+    QFileInfoList images;
+    for (const QFileInfo &info : QDir(folder).entryInfoList(QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase))
+        if (extensions.contains(info.suffix().toLower()))
+            images << info;
+    if (images.isEmpty())
+        return {};
+
+    // Names players and rippers use for the front cover, best first. Matching
+    // ignores case, so Cover.JPG and folder.jpg both count; Windows Media
+    // Player's AlbumArt_{GUID}_Large.jpg starts with "albumart".
+    for (const char *name : {"cover", "folder", "front", "album", "albumart", "thumb"}) {
+        for (const QFileInfo &info : std::as_const(images)) {
+            const QString stem = info.completeBaseName().toLower();
+            if (stem == name || (QString(name) == "albumart" && stem.startsWith("albumart") && !stem.contains("small")))
+                return info.filePath();
+        }
+    }
+    // A folder with exactly one image is almost certainly the cover, whatever
+    // it is called. With several and no clear name, guessing would often pick
+    // a booklet scan or a back cover, so none is better.
+    return images.size() == 1 ? images.first().filePath() : QString();
+}
+
+QImage Backend::loadScaledImage(const QString &path, int limit) {
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    QSize size = reader.size();
+    if (size.isValid() && (size.width() > limit || size.height() > limit)) {
+        size.scale(limit, limit, Qt::KeepAspectRatio);
+        reader.setScaledSize(size);
+    }
+    return reader.read();
+}
+
+// Embedded art wins; otherwise the folder's cover image. Art is kept at a size
+// that stays sharp in the window without holding a huge scan in memory.
 void Backend::updateCover(const QImage &embedded) {
     QImage image = embedded;
     if (image.isNull() && m_current >= 0) {
-        const QDir folder(QFileInfo(m_tracks[m_current].path).absolutePath());
-        const QStringList names = folder.entryList({"cover.*", "folder.*", "front.*", "album.*", "albumart*.*"}, QDir::Files);
-        for (const auto &name : names) {
-            const QString suffix = QFileInfo(name).suffix().toLower();
-            if (suffix == "jpg" || suffix == "jpeg" || suffix == "png" || suffix == "webp") {
-                image.load(folder.filePath(name));
-                if (!image.isNull())
-                    break;
-            }
+        const QString folder = QFileInfo(m_tracks[m_current].path).absolutePath();
+        if (folder != m_coverFolder) {
+            const QString file = findFolderCover(folder);
+            m_coverFolder = folder;
+            m_coverFolderImage = file.isEmpty() ? QImage() : loadScaledImage(file);
         }
+        image = m_coverFolderImage;
     }
     if (image.width() > 800 || image.height() > 800)
         image = image.scaled(800, 800, Qt::KeepAspectRatio, Qt::SmoothTransformation);

@@ -120,6 +120,14 @@ public:
     void setStateFile(const QString &path);
     void saveState();
 
+    // The cover image sitting beside music files: a conventional name first
+    // (cover, folder, front, album, AlbumArt…), otherwise the only image there.
+    // Empty when there isn't one clear choice.
+    static QString findFolderCover(const QString &folder);
+    // Reads an image no larger than `limit` pixels a side, decoding big ones at
+    // the smaller size instead of in full.
+    static QImage loadScaledImage(const QString &path, int limit = 800);
+
     // Audio files under a folder, sorted so "2 - x" comes before "10 - x".
     static QStringList scan(const QString &folder);
     static bool isAudioFile(const QString &path);
@@ -229,6 +237,9 @@ private:
     bool m_loadingState = false;
     QTimer m_saveTimer, m_positionTimer;
     QImage m_cover;
+    // Albums share one cover.jpg, so the last folder's image is kept for the next track.
+    QString m_coverFolder;
+    QImage m_coverFolderImage;
     int m_coverId = 0;
     bool m_reading = false;
     bool m_scanning = false, m_shuffle = false;

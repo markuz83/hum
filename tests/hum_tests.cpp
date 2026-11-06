@@ -576,6 +576,52 @@ private slots:
         QCOMPARE(backend.queueRatio(), 0.15);
     }
 
+    void folderCoverFindsConventionalNamesIgnoringCase()
+    {
+        auto folderWith = [&](const QStringList &files) {
+            auto dir = std::make_unique<QTemporaryDir>();
+            for (const auto &f : files)
+                touch(dir->path() + "/" + f);
+            return dir;
+        };
+        auto name = [](const QString &path) { return QFileInfo(path).fileName(); };
+
+        auto d1 = folderWith({"track.mp3", "Cover.JPG", "booklet.jpg"});
+        QCOMPARE(name(Backend::findFolderCover(d1->path())), QString("Cover.JPG"));
+        // cover beats folder, which beats front.
+        auto d2 = folderWith({"front.png", "folder.jpg", "x.jpg"});
+        QCOMPARE(name(Backend::findFolderCover(d2->path())), QString("folder.jpg"));
+        // Windows Media Player's large cover wins over its small one.
+        auto d3 = folderWith({"AlbumArtSmall.jpg", "AlbumArt_{1234}_Large.jpg"});
+        QCOMPARE(name(Backend::findFolderCover(d3->path())), QString("AlbumArt_{1234}_Large.jpg"));
+        // Not an image, so not a cover.
+        auto d4 = folderWith({"track.mp3", "cover.txt", "notes.pdf"});
+        QVERIFY(Backend::findFolderCover(d4->path()).isEmpty());
+    }
+
+    void folderCoverFallsBackToTheOnlyImage()
+    {
+        QTemporaryDir one, many;
+        touch(one.path() + "/Some Album Name.webp");
+        QCOMPARE(QFileInfo(Backend::findFolderCover(one.path())).fileName(), QString("Some Album Name.webp"));
+        // Several unnamed images could be scans or a back cover; guessing is worse than none.
+        touch(many.path() + "/scan1.jpg");
+        touch(many.path() + "/scan2.jpg");
+        QVERIFY(Backend::findFolderCover(many.path()).isEmpty());
+    }
+
+    void largeImagesAreDecodedAtAReducedSize()
+    {
+        QTemporaryDir dir;
+        QImage big(3000, 2000, QImage::Format_RGB32);
+        big.fill(Qt::red);
+        QVERIFY(big.save(dir.path() + "/big.png"));
+        const QImage loaded = Backend::loadScaledImage(dir.path() + "/big.png", 800);
+        QCOMPARE(loaded.width(), 800);
+        QCOMPARE(loaded.height(), 533);
+        QVERIFY(Backend::loadScaledImage(dir.path() + "/missing.png").isNull());
+    }
+
     void emptyLibraryIsReported()
     {
         QTemporaryDir dir;
