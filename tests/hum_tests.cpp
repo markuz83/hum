@@ -174,6 +174,38 @@ private slots:
         QCOMPARE(theme.accentForeground(), QString("white"));
     }
 
+    void themeReadsThePalette()
+    {
+        QTemporaryDir dir;
+        QDir(dir.path()).mkpath("theme");
+        write(dir.path() + "/theme/colors.toml",
+              "mode = \"light\"\nbackground = \"#FAF4ED\"\nforeground = \"#575279\"\n"
+              "muted = '#9893a5'\nselection = \"#DFDAD9\"\nred = \"#B4637A\"\n");
+
+        Theme theme(dir.path());
+        QCOMPARE(theme.background(), QString("#FAF4ED"));
+        QCOMPARE(theme.foreground(), QString("#575279"));
+        QCOMPARE(theme.muted(), QString("#9893a5"));
+        QCOMPARE(theme.danger(), QString("#B4637A"));
+        QVERIFY(!theme.dark());
+        // No lighter_background in this theme, so panels use the selection color.
+        QCOMPARE(theme.raised(), QString("#DFDAD9"));
+    }
+
+    void themeFollowsAThemeSwitch()
+    {
+        QTemporaryDir dir;
+        QDir(dir.path()).mkpath("theme");
+        write(dir.path() + "/theme/colors.toml", "background = \"#111111\"\n");
+        Theme theme(dir.path());
+        QCOMPARE(theme.background(), QString("#111111"));
+        QVERIFY(theme.dark());
+
+        write(dir.path() + "/theme/colors.toml", "mode = \"light\"\nbackground = \"#EEEEEE\"\n");
+        QTRY_COMPARE(theme.background(), QString("#EEEEEE"));
+        QVERIFY(!theme.dark());
+    }
+
     void themeFollowsWindowOpacity()
     {
         QTemporaryDir dir;

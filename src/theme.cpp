@@ -63,16 +63,36 @@ void Theme::refreshRounding() {
     m_roundingTimeout.start();
 }
 
-QString Theme::readAccent(const QString &path) {
+QString Theme::readColor(const QString &path, const QString &key, const QString &fallback) {
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
-        const QRegularExpression expression(R"re(^\s*accent\s*=\s*["'](#[0-9a-fA-F]{6})["'])re",
-                                            QRegularExpression::MultilineOption);
+        const QRegularExpression expression(
+            "^\\s*" + QRegularExpression::escape(key) + R"re(\s*=\s*["'](#[0-9a-fA-F]{6})["'])re",
+            QRegularExpression::MultilineOption);
         const auto match = expression.match(QString::fromUtf8(file.readAll()));
         if (match.hasMatch())
             return match.captured(1);
     }
-    return "#FFD60A";
+    return fallback;
+}
+
+QString Theme::readAccent(const QString &path) {
+    return readColor(path, "accent", "#FFD60A");
+}
+
+// Light themes say so with mode = "light"; anything else is dark.
+bool Theme::readDark(const QString &path) {
+    QFile file(path);
+    if (file.open(QIODevice::ReadOnly)) {
+        const QRegularExpression expression(R"re(^\s*mode\s*=\s*["']light["'])re", QRegularExpression::MultilineOption);
+        return !expression.match(QString::fromUtf8(file.readAll())).hasMatch();
+    }
+    return true;
+}
+
+QHash<QString, QString> Theme::defaultColors() {
+    return {{"background", "#0e0e10"}, {"foreground", "#ffffff"}, {"muted", "#8a8a93"},
+            {"selection", "#26262c"}, {"lighter_background", "#1b1b1f"}, {"red", "#ff6b6b"}};
 }
 
 // Omarchy records the choice as a file under toggles/hypr: window-opaque.lua
@@ -124,11 +144,21 @@ void Theme::reload() {
         if (QFileInfo::exists(path))
             m_watcher.addPath(path);
 
-    const auto accent = readAccent(m_directory + "/theme/colors.toml");
+    const QString colors = m_directory + "/theme/colors.toml";
+    const auto accent = readAccent(colors);
     const auto mode = readWindowMode(m_togglesDirectory);
-    if (accent != m_accent || mode != m_windowMode) {
+    const bool dark = readDark(colors);
+    QHash<QString, QString> palette = defaultColors();
+    for (auto it = palette.begin(); it != palette.end(); ++it)
+        it.value() = readColor(colors, it.key(), it.value());
+    // A theme without lighter_background still gets a distinct panel color.
+    if (readColor(colors, "lighter_background", {}).isEmpty())
+        palette["lighter_background"] = palette["selection"];
+    if (accent != m_accent || mode != m_windowMode || dark != m_dark || palette != m_colors) {
         m_accent = accent;
         m_windowMode = mode;
+        m_dark = dark;
+        m_colors = palette;
         emit changed();
     }
 }

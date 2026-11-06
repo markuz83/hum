@@ -13,13 +13,16 @@ ApplicationWindow {
     title: backend.title.length > 0 ? backend.title + " — hum" : "hum"
     // Follows Omarchy's Window Opacity: solid, slightly see-through, or glassy
     // (which Hyprland blurs behind). Only the background fades, never the text.
-    color: Qt.rgba(0.055, 0.055, 0.063, theme.windowAlpha)
+    color: Qt.rgba(ground.r, ground.g, ground.b, theme.windowAlpha)
 
-    Material.theme: Material.Dark
+    Material.theme: theme.dark ? Material.Dark : Material.Light
     Material.accent: theme.accent
+    Material.foreground: theme.foreground
     Material.roundedScale: theme.radius
 
-    readonly property color dim: "#8a8a93"
+    // Everything here comes from the current Omarchy theme.
+    readonly property color ground: theme.background
+    readonly property color dim: theme.muted
     property bool helpVisible: false
     property int visualizerStyle: 0
     // Typing in the filter must not trigger the single-key shortcuts.
@@ -91,7 +94,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     visible: backend.error.length > 0
                     text: backend.error
-                    color: "#ff6b6b"
+                    color: theme.danger
                     wrapMode: Text.WordWrap
                 }
 
@@ -124,7 +127,7 @@ ApplicationWindow {
                         width: parent.width
                         height: 4
                         radius: Math.min(2, theme.radius)
-                        color: "#2a2a30"
+                        color: theme.selection
                         Rectangle {
                             anchors.left: parent.left
                             height: parent.height
@@ -160,7 +163,7 @@ ApplicationWindow {
                 }
             }
 
-            Rectangle { Layout.fillHeight: true; width: 1; color: "#232328" }
+            Rectangle { Layout.fillHeight: true; width: 1; color: theme.selection }
 
             // The library.
             ColumnLayout {
@@ -209,7 +212,7 @@ ApplicationWindow {
                         Rectangle {
                             anchors.fill: parent
                             radius: Math.min(4, theme.radius)
-                            color: parent.ListView.isCurrentItem ? "#26262c" : rowHover.hovered ? "#1b1b20" : "transparent"
+                            color: parent.ListView.isCurrentItem ? theme.selection : rowHover.hovered ? theme.raised : "transparent"
                         }
                         Label {
                             anchors.fill: parent
@@ -218,7 +221,7 @@ ApplicationWindow {
                             verticalAlignment: Text.AlignVCenter
                             text: modelData
                             elide: Text.ElideMiddle
-                            color: playingRow ? theme.accent : "white"
+                            color: playingRow ? theme.accent : theme.foreground
                             font.bold: playingRow
                         }
                         HoverHandler { id: rowHover }

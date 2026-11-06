@@ -32,9 +32,9 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(parent.width - 48, 520)
         height: column.implicitHeight + 48
-        color: "#1b1b1f"
+        color: theme.raised
         radius: theme.radius
-        border.color: "#2e2e35"
+        border.color: theme.selection
 
         ColumnLayout {
             id: column
