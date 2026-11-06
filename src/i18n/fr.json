@@ -54,5 +54,17 @@
   "Clear filter": "Effacer le filtre",
   "No music found": "Aucune musique trouvée",
   "Press %1 to choose a music folder.": "Appuyez sur %1 pour choisir un dossier de musique.",
-  "Press %1 for shortcuts": "Appuyez sur %1 pour les raccourcis"
+  "Press %1 for shortcuts": "Appuyez sur %1 pour les raccourcis",
+  "Queue": "File d'attente",
+  "Clear": "Vider",
+  "Nothing queued": "File d'attente vide",
+  "Press %1 on a track to add it, or %2 to play it next.": "Appuyez sur %1 sur un titre pour l'ajouter, ou sur %2 pour le lire ensuite.",
+  "Play next": "Lire ensuite",
+  "Add to queue": "Ajouter à la file d'attente",
+  "Remove from queue": "Retirer de la file d'attente",
+  "Clear the queue": "Vider la file d'attente",
+  "Move in the queue": "Déplacer dans la file d'attente",
+  "Undo / redo": "Annuler / rétablir",
+  "Resize the queue pane": "Redimensionner la file d'attente",
+  "Reset pane sizes": "Réinitialiser la taille des panneaux"
 }

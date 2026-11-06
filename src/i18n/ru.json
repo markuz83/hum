@@ -55,5 +55,17 @@
   "Clear filter": "Очистить фильтр",
   "No music found": "Музыка не найдена",
   "Press %1 to choose a music folder.": "Нажмите %1, чтобы выбрать папку с музыкой.",
-  "Press %1 for shortcuts": "Нажмите %1 для списка сочетаний клавиш"
+  "Press %1 for shortcuts": "Нажмите %1 для списка сочетаний клавиш",
+  "Queue": "Очередь",
+  "Clear": "Очистить",
+  "Nothing queued": "Очередь пуста",
+  "Press %1 on a track to add it, or %2 to play it next.": "Нажмите %1 на треке, чтобы добавить его, или %2, чтобы сыграть его следующим.",
+  "Play next": "Играть следующим",
+  "Add to queue": "Добавить в очередь",
+  "Remove from queue": "Убрать из очереди",
+  "Clear the queue": "Очистить очередь",
+  "Move in the queue": "Переместить в очереди",
+  "Undo / redo": "Отменить / повторить",
+  "Resize the queue pane": "Изменить размер очереди",
+  "Reset pane sizes": "Сбросить размеры панелей"
 }

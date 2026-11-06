@@ -16,14 +16,21 @@ Rectangle {
         ["← →", qsTr("Seek 5 seconds")],
         ["+ −", qsTr("Volume up / down")],
         ["M", qsTr("Mute")],
+        ["S", qsTr("Shuffle")],
+        ["R", qsTr("Repeat")],
+        ["V", qsTr("Change visualizer")],
         ["J K ↑ ↓", qsTr("Move in the list")],
         ["H L Tab", qsTr("Switch column")],
         ["Enter", qsTr("Play the selected track")],
         ["/", qsTr("Filter the list")],
         ["O", qsTr("Choose music folder")],
-        ["S", qsTr("Shuffle")],
-        ["R", qsTr("Repeat")],
-        ["V", qsTr("Change visualizer")],
+        ["A / Shift+A", qsTr("Add to queue") + " · " + qsTr("Play next")],
+        ["X Del", qsTr("Remove from queue")],
+        ["Shift+X", qsTr("Clear the queue")],
+        ["Shift+J K", qsTr("Move in the queue")],
+        ["Ctrl+Z", qsTr("Undo / redo")],
+        ["[ ]", qsTr("Resize the queue pane")],
+        ["\\", qsTr("Reset pane sizes")],
         ["?", qsTr("Show or hide this help")],
         ["Q", qsTr("Quit")]
     ]
@@ -31,38 +38,58 @@ Rectangle {
     MouseArea { anchors.fill: parent; onClicked: overlay.dismissed() }
 
     Rectangle {
+        id: card
         anchors.centerIn: parent
-        width: Math.min(parent.width - 48, 520)
-        height: column.implicitHeight + 48
+        width: Math.min(parent.width - 48, 860)
+        height: Math.min(parent.height - 48, grid.implicitHeight + title.implicitHeight + 72)
         color: theme.raised
         radius: theme.radius
         border.color: theme.highlight
 
-        ColumnLayout {
-            id: column
+        // A taller list than the window scrolls instead of being cut off.
+        Flickable {
             anchors.fill: parent
             anchors.margins: 24
-            spacing: 10
+            contentHeight: content.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
 
-            Label {
-                text: qsTr("Keyboard shortcuts")
-                font.pixelSize: 18
-                font.bold: true
-            }
-            Repeater {
-                model: overlay.shortcuts
-                RowLayout {
+            ColumnLayout {
+                id: content
+                width: parent.width
+                spacing: 14
+
+                Label {
+                    id: title
+                    text: qsTr("Keyboard shortcuts")
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+                GridLayout {
+                    id: grid
                     Layout.fillWidth: true
-                    spacing: 16
-                    Label {
-                        text: modelData[0]
-                        color: theme.accent
-                        Layout.preferredWidth: 90
-                    }
-                    Label {
-                        text: modelData[1]
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
+                    columns: card.width >= 700 ? 2 : 1
+                    columnSpacing: 32
+                    rowSpacing: 8
+                    flow: GridLayout.TopToBottom
+                    rows: Math.ceil(overlay.shortcuts.length / columns)
+
+                    Repeater {
+                        model: overlay.shortcuts
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 16
+                            Label {
+                                text: modelData[0]
+                                color: theme.accent
+                                Layout.preferredWidth: 110
+                            }
+                            Label {
+                                text: modelData[1]
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                            }
+                        }
                     }
                 }
             }

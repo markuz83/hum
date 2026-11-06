@@ -54,5 +54,17 @@
   "Clear filter": "Limpar filtro",
   "No music found": "Nenhuma música encontrada",
   "Press %1 to choose a music folder.": "Pressione %1 para escolher uma pasta de música.",
-  "Press %1 for shortcuts": "Pressione %1 para ver os atalhos"
+  "Press %1 for shortcuts": "Pressione %1 para ver os atalhos",
+  "Queue": "Fila",
+  "Clear": "Limpar",
+  "Nothing queued": "Nada na fila",
+  "Press %1 on a track to add it, or %2 to play it next.": "Pressione %1 em uma faixa para adicioná-la, ou %2 para tocá-la em seguida.",
+  "Play next": "Tocar em seguida",
+  "Add to queue": "Adicionar à fila",
+  "Remove from queue": "Remover da fila",
+  "Clear the queue": "Limpar a fila",
+  "Move in the queue": "Mover na fila",
+  "Undo / redo": "Desfazer / refazer",
+  "Resize the queue pane": "Redimensionar a fila",
+  "Reset pane sizes": "Redefinir tamanho dos painéis"
 }

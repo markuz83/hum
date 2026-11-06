@@ -54,5 +54,17 @@
   "Clear filter": "Borrar filtro",
   "No music found": "No se encontró música",
   "Press %1 to choose a music folder.": "Pulsa %1 para elegir una carpeta de música.",
-  "Press %1 for shortcuts": "Pulsa %1 para ver los atajos"
+  "Press %1 for shortcuts": "Pulsa %1 para ver los atajos",
+  "Queue": "Cola",
+  "Clear": "Vaciar",
+  "Nothing queued": "Nada en la cola",
+  "Press %1 on a track to add it, or %2 to play it next.": "Pulsa %1 en una pista para añadirla, o %2 para reproducirla a continuación.",
+  "Play next": "Reproducir a continuación",
+  "Add to queue": "Añadir a la cola",
+  "Remove from queue": "Quitar de la cola",
+  "Clear the queue": "Vaciar la cola",
+  "Move in the queue": "Mover en la cola",
+  "Undo / redo": "Deshacer / rehacer",
+  "Resize the queue pane": "Cambiar el tamaño de la cola",
+  "Reset pane sizes": "Restablecer tamaños de los paneles"
 }

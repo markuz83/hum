@@ -52,5 +52,17 @@
   "Clear filter": "清除筛选",
   "No music found": "未找到音乐",
   "Press %1 to choose a music folder.": "按 %1 选择音乐文件夹。",
-  "Press %1 for shortcuts": "按 %1 查看快捷键"
+  "Press %1 for shortcuts": "按 %1 查看快捷键",
+  "Queue": "队列",
+  "Clear": "清空",
+  "Nothing queued": "队列为空",
+  "Press %1 on a track to add it, or %2 to play it next.": "在曲目上按 %1 添加，按 %2 设为下一首播放。",
+  "Play next": "下一首播放",
+  "Add to queue": "添加到队列",
+  "Remove from queue": "从队列中移除",
+  "Clear the queue": "清空队列",
+  "Move in the queue": "在队列中移动",
+  "Undo / redo": "撤销 / 重做",
+  "Resize the queue pane": "调整队列面板大小",
+  "Reset pane sizes": "重置面板大小"
 }

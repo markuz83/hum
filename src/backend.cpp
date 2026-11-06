@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
@@ -92,6 +93,142 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
     m_cacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/tags.json";
 }
 
+int Backend::indexOfPath(const QString &path) const {
+    for (int i = 0; i < m_tracks.size(); ++i)
+        if (m_tracks[i].path == path)
+            return i;
+    return -1;
+}
+
+QVariantList Backend::queue() const {
+    QVariantList items;
+    for (const QString &path : m_queue) {
+        const int index = indexOfPath(path);
+        if (index < 0)
+            continue;
+        const Track &t = m_tracks[index];
+        items << QVariantMap{{"title", t.title}, {"artist", t.artist}, {"album", t.album}};
+    }
+    return items;
+}
+
+void Backend::setQueueRatio(qreal ratio) {
+    ratio = std::clamp(ratio, 0.15, 0.6);
+    if (qFuzzyCompare(ratio, m_queueRatio))
+        return;
+    m_queueRatio = ratio;
+    emit layoutChanged();
+    scheduleSave();
+}
+
+// Every edit keeps the queue it replaced, so Ctrl+Z can bring it back.
+void Backend::setQueue(const QStringList &queue, bool recordUndo) {
+    if (queue == m_queue)
+        return;
+    if (recordUndo) {
+        m_queueUndo.append(m_queue);
+        if (m_queueUndo.size() > 50)
+            m_queueUndo.removeFirst();
+        m_queueRedo.clear();
+    }
+    m_queue = queue;
+    emit queueChanged();
+    scheduleSave();
+}
+
+void Backend::insertIntoQueue(const QStringList &paths, bool playNext) {
+    if (paths.isEmpty())
+        return;
+    QStringList queue = m_queue;
+    if (playNext) {
+        for (int i = 0; i < paths.size(); ++i)
+            queue.insert(i, paths[i]);
+    } else {
+        queue += paths;
+    }
+    setQueue(queue);
+}
+
+void Backend::enqueue(int row, bool playNext) {
+    if (row >= 0 && row < m_visible.size())
+        insertIntoQueue({m_tracks[m_visible[row]].path}, playNext);
+}
+
+void Backend::enqueueVisible(bool playNext) {
+    QStringList paths;
+    for (int index : std::as_const(m_visible))
+        paths << m_tracks[index].path;
+    insertIntoQueue(paths, playNext);
+}
+
+void Backend::enqueueGroup(int column, int row, bool playNext) {
+    QStringList paths;
+    for (int index : std::as_const(m_matching)) {
+        const Track &t = m_tracks[index];
+        bool match = true;
+        if (column == 0 && row > 0 && row <= m_artistValues.size())
+            match = t.artist == m_artistValues[row - 1];
+        else if (column == 1) {
+            // An album means that album within the artist chosen, if one is.
+            match = m_allArtists || t.artist == m_artistSel;
+            if (match && row > 0 && row <= m_albumValues.size())
+                match = t.album == m_albumValues[row - 1];
+        }
+        if (match)
+            paths << t.path;
+    }
+    insertIntoQueue(paths, playNext);
+}
+
+void Backend::removeFromQueue(int row) {
+    if (row < 0 || row >= m_queue.size())
+        return;
+    QStringList queue = m_queue;
+    queue.removeAt(row);
+    setQueue(queue);
+}
+
+void Backend::moveInQueue(int from, int to) {
+    if (from < 0 || from >= m_queue.size() || to < 0 || to >= m_queue.size() || from == to)
+        return;
+    QStringList queue = m_queue;
+    queue.move(from, to);
+    setQueue(queue);
+}
+
+void Backend::clearQueue() {
+    setQueue({});
+}
+
+void Backend::playFromQueue(int row) {
+    if (row < 0 || row >= m_queue.size())
+        return;
+    const QString path = m_queue.takeAt(row);
+    m_queueUndo.clear();
+    m_queueRedo.clear();
+    emit queueChanged();
+    scheduleSave();
+    playPath(path);
+}
+
+void Backend::undoQueue() {
+    if (m_queueUndo.isEmpty())
+        return;
+    m_queueRedo.append(m_queue);
+    m_queue = m_queueUndo.takeLast();
+    emit queueChanged();
+    scheduleSave();
+}
+
+void Backend::redoQueue() {
+    if (m_queueRedo.isEmpty())
+        return;
+    m_queueUndo.append(m_queue);
+    m_queue = m_queueRedo.takeLast();
+    emit queueChanged();
+    scheduleSave();
+}
+
 void Backend::setFilePicker(FilePicker *picker) {
     m_picker = picker;
     connect(picker, &FilePicker::picked, this, [this](const QString &path) {
@@ -131,6 +268,11 @@ void Backend::loadState() {
     m_resumePath = state.value("track").toString();
     m_resumePosition = qint64(state.value("position").toDouble());
     m_savedLibrary = state.value("library").toString();
+    if (state.contains("queueRatio"))
+        setQueueRatio(state.value("queueRatio").toDouble(m_queueRatio));
+    m_queue.clear();
+    for (const QJsonValue &path : state.value("queue").toArray())
+        m_queue << path.toString();
     m_loadingState = false;
 }
 
@@ -146,7 +288,8 @@ void Backend::saveState() {
     QJsonObject state{{"volume", m_volume}, {"shuffle", m_shuffle}, {"repeat", m_repeat},
                       {"visualizer", m_visualizerStyle}, {"track", currentPath()},
                       {"position", double(m_resumeAt >= 0 ? m_resumeAt : m_player.position())},
-                      {"library", m_savedLibrary}};
+                      {"library", m_savedLibrary}, {"queueRatio", m_queueRatio},
+                      {"queue", QJsonArray::fromStringList(m_queue)}};
     // Before the track the user left has been found again, keep remembering it.
     if (currentPath().isEmpty() && !m_resumePath.isEmpty()) {
         state["track"] = m_resumePath;
@@ -350,6 +493,15 @@ void Backend::finishScan(const QStringList &paths) {
     m_allArtists = m_allAlbums = true;
     sortTracks();
 
+    // Queued files that aren't in this library (it changed, or they were
+    // deleted) can't be played, so they leave the queue.
+    QStringList kept;
+    for (const QString &path : std::as_const(m_queue))
+        if (indexOfPath(path) >= 0)
+            kept << path;
+    m_queue = kept;
+    emit queueChanged();
+
     if (m_tracks.isEmpty())
         setError(tr("No music found in %1").arg(m_library));
     if (!m_pending.isEmpty()) {
@@ -422,6 +574,9 @@ void Backend::sortTracks() {
         if (m_tracks[i].path == current)
             m_current = i;
     refresh();
+    // Queue rows are looked up by path, so they appear once the library has
+    // loaded and change names when the tags arrive; the pane must be told.
+    emit queueChanged();
 }
 
 // Rebuilds the three columns from the filter and the artist and album chosen.
@@ -435,6 +590,8 @@ void Backend::refresh() {
             t.name.contains(m_filter, Qt::CaseInsensitive))
             matching.append(i);
     }
+
+    m_matching = matching;
 
     auto unique = [&](const QList<int> &indexes, auto field) {
         QStringList values;
@@ -530,6 +687,18 @@ void Backend::play(int row) {
     m_player.play();
 }
 
+bool Backend::playPath(const QString &path) {
+    const int index = indexOfPath(path);
+    if (index < 0)
+        return false;
+    m_current = index;
+    m_resumeAt = -1;
+    setError({});
+    loadCurrent();
+    m_player.play();
+    return true;
+}
+
 void Backend::loadCurrent() {
     m_clockBase = 0;
     m_clock.restart();
@@ -600,17 +769,45 @@ void Backend::toggle() {
     }
 }
 
-void Backend::next() {
+int Backend::nextRow(bool wrap) const {
     if (m_visible.isEmpty())
-        return;
+        return -1;
     const int row = currentRow();
-    int target = (row + 1) % int(m_visible.size());
-    if (m_shuffle && m_visible.size() > 1) {
+    if (m_shuffle) {
+        if (m_visible.size() == 1)
+            return 0;
+        int target;
         do {
             target = int(QRandomGenerator::global()->bounded(m_visible.size()));
         } while (target == row);
+        return target;
     }
-    play(target);
+    if (row >= 0)
+        return row + 1 < m_visible.size() ? row + 1 : wrap ? 0 : -1;
+    // The playing track isn't in this list: carry on after its place in the
+    // library, which the visible indexes follow in order.
+    for (int r = 0; r < m_visible.size(); ++r)
+        if (m_visible[r] > m_current)
+            return r;
+    return wrap ? 0 : -1;
+}
+
+void Backend::next() {
+    // The queue plays first; entries that are no longer in the library are skipped.
+    while (!m_queue.isEmpty()) {
+        const QString path = m_queue.first();
+        m_queue.removeFirst();
+        // Playing through the queue is not an edit to undo.
+        m_queueUndo.clear();
+        m_queueRedo.clear();
+        emit queueChanged();
+        scheduleSave();
+        if (playPath(path))
+            return;
+    }
+    const int row = nextRow(true);
+    if (row >= 0)
+        play(row);
 }
 
 void Backend::previous() {
@@ -630,8 +827,12 @@ void Backend::advanceAfterEnd() {
     if (m_repeat == RepeatOne) {
         m_player.setPosition(0);
         m_player.play();
-    } else if (m_repeat == RepeatAll || m_shuffle || currentRow() < m_visible.size() - 1) {
+    } else if (!m_queue.isEmpty()) {
         next();
+    } else {
+        const int row = nextRow(m_repeat == RepeatAll);
+        if (row >= 0)
+            play(row);
     }
 }
 

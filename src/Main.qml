@@ -82,11 +82,15 @@ ApplicationWindow {
             backend.selectArtist(Math.max(0, Math.min(backend.artists.length, backend.artistRow + delta)))
         else if (activeColumn === 1)
             backend.selectAlbum(Math.max(0, Math.min(backend.albums.length, backend.albumRow + delta)))
-        else
+        else if (activeColumn === 2)
             titleColumn.list.currentIndex = Math.max(0, Math.min(titleColumn.count - 1, titleColumn.currentIndex + delta))
+        else
+            queue.list.currentIndex = Math.max(0, Math.min(queue.count - 1, queue.currentIndex + delta))
     }
     function activate() {
-        if (activeColumn === 2) {
+        if (activeColumn === 3) {
+            backend.playFromQueue(queue.currentIndex)
+        } else if (activeColumn === 2) {
             backend.play(titleColumn.currentIndex)
         } else {
             // Choosing an artist or album plays its first track.
@@ -94,6 +98,41 @@ ApplicationWindow {
             titleColumn.list.currentIndex = 0
             backend.play(0)
         }
+    }
+    function playFrom(column, row) {
+        if (column === 2) {
+            backend.play(row)
+            return
+        }
+        if (column === 0) backend.selectArtist(row)
+        else backend.selectAlbum(row)
+        activeColumn = 2
+        titleColumn.list.currentIndex = 0
+        backend.play(0)
+    }
+    // An artist or album adds all its tracks; a title adds just itself.
+    function enqueueFrom(column, row, next) {
+        if (column === 2) backend.enqueue(row, next)
+        else backend.enqueueGroup(column, row, next)
+    }
+    function addToQueue(next) {
+        if (activeColumn === 3) return
+        enqueueFrom(activeColumn, activeColumn === 0 ? backend.artistRow : activeColumn === 1 ? backend.albumRow : titleColumn.currentIndex, next)
+    }
+    function moveQueueItem(delta) {
+        if (activeColumn !== 3) return
+        const from = queue.currentIndex, to = from + delta
+        if (to < 0 || to >= queue.count) return
+        backend.moveInQueue(from, to)
+        queue.list.currentIndex = to
+    }
+    function removeFromQueue() {
+        if (activeColumn === 3) backend.removeFromQueue(queue.currentIndex)
+    }
+    // Resizing starts from the width the queue actually has, which the
+    // browser's minimum width can hold below the saved ratio.
+    function resizeQueue(delta) {
+        backend.queueRatio = lower.queueWidth / lower.width + delta
     }
 
     Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
@@ -112,11 +151,35 @@ ApplicationWindow {
     Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleVisualizer() }
     Shortcut { sequences: ["J", "Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(1) }
     Shortcut { sequences: ["K", "Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(-1) }
-    Shortcut { sequences: ["L", "Tab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.min(2, win.activeColumn + 1) }
+    Shortcut { sequences: ["L", "Tab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.min(3, win.activeColumn + 1) }
     Shortcut { sequences: ["H", "Backtab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.max(0, win.activeColumn - 1) }
     Shortcut { sequences: ["Return", "Enter"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activate() }
     Shortcut { sequence: "O"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.chooseLibrary() }
     Shortcut { sequence: "/"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: filter.forceActiveFocus() }
+    Shortcut { sequence: "A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.addToQueue(false) }
+    Shortcut { sequence: "Shift+A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.addToQueue(true) }
+    Shortcut { sequences: ["X", "Delete", "Backspace"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.removeFromQueue() }
+    Shortcut { sequence: "Shift+X"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.clearQueue() }
+    Shortcut { sequences: ["Shift+J", "Alt+Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.moveQueueItem(1) }
+    Shortcut { sequences: ["Shift+K", "Alt+Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.moveQueueItem(-1) }
+    Shortcut { sequence: "Ctrl+Z"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.undoQueue() }
+    Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.redoQueue() }
+    // Pane sizes: [ and ] make the queue narrower or wider, and \ puts it back.
+    Shortcut { sequence: "]"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.resizeQueue(0.02) }
+    Shortcut { sequence: "["; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.resizeQueue(-0.02) }
+    Shortcut { sequence: "\\"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.queueRatio = 1 / 3 }
+
+    // Right-click on a row: play it, play it next, or queue it.
+    Menu {
+        id: contextMenu
+        objectName: "contextMenu"
+        property int column: 2
+        property int row: 0
+        font.family: theme.fontFamily
+        MenuItem { text: qsTr("Play"); onTriggered: win.playFrom(contextMenu.column, contextMenu.row) }
+        MenuItem { objectName: "playNextItem"; text: qsTr("Play next"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, true) }
+        MenuItem { objectName: "addItem"; text: qsTr("Add to queue"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, false) }
+    }
 
     // Right-to-left languages mirror the window; the Translator sets the
     // application's layout direction.
@@ -366,11 +429,25 @@ ApplicationWindow {
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.highlight }
 
             // The library: Artist | Album | Title.
-            ColumnLayout {
+            Item {
+                id: lower
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.max(220, win.height * 0.42)
-                Layout.margins: 16
-                spacing: 8
+
+                // The queue takes its saved share of the window, but never so
+                // much that the browser can't show its three columns.
+                readonly property real minBrowserWidth: 360
+                readonly property real queueWidth: Math.max(120, Math.min(width * backend.queueRatio, width - minBrowserWidth))
+
+                ColumnLayout {
+                    id: browserPane
+                    anchors.left: parent.left
+                    anchors.right: queuePane.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 16
+                    anchors.rightMargin: 8
+                    spacing: 8
 
                 // A compact filter box, with a clear button once it has text.
                 Rectangle {
@@ -441,6 +518,7 @@ ApplicationWindow {
                             currentIndex: backend.artistRow
                             onClicked: win.activeColumn = 0
                             onPicked: index => backend.selectArtist(index)
+                            onContextRequested: index => { contextMenu.column = 0; contextMenu.row = index; contextMenu.popup() }
                         }
                         BrowserColumn {
                             Layout.fillWidth: true
@@ -453,6 +531,7 @@ ApplicationWindow {
                             currentIndex: backend.albumRow
                             onClicked: win.activeColumn = 1
                             onPicked: index => backend.selectAlbum(index)
+                            onContextRequested: index => { contextMenu.column = 1; contextMenu.row = index; contextMenu.popup() }
                         }
                         BrowserColumn {
                             id: titleColumn
@@ -465,6 +544,7 @@ ApplicationWindow {
                             playingIndex: backend.currentRow
                             onClicked: win.activeColumn = 2
                             onPicked: index => { list.currentIndex = index; backend.play(index) }
+                            onContextRequested: index => { list.currentIndex = index; contextMenu.column = 2; contextMenu.row = index; contextMenu.popup() }
 
                             // The cursor follows the playing track, and stays in range
                             // when the list is narrowed.
@@ -543,6 +623,60 @@ ApplicationWindow {
                         text: qsTr("Press %1 for shortcuts").arg("?")
                         color: win.dim
                         font.pixelSize: 12
+                    }
+                }
+                }
+
+                // The queue pane, and the splitter between it and the browser.
+                Item {
+                    id: queuePane
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: lower.queueWidth
+
+                    QueuePanel {
+                        id: queue
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        anchors.leftMargin: 8
+                        active: win.activeColumn === 3
+                        onClicked: win.activeColumn = 3
+                    }
+                }
+
+                // Drag to resize; double-click to reset. [ and ] do the same from the keyboard.
+                Item {
+                    id: splitter
+                    anchors.right: queuePane.left
+                    anchors.rightMargin: -width / 2
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 12
+                    z: 5
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: splitArea.pressed || splitArea.containsMouse ? 3 : 1
+                        height: parent.height - 24
+                        radius: width / 2
+                        color: splitArea.pressed || splitArea.containsMouse ? theme.accent : theme.highlight
+                    }
+                    MouseArea {
+                        id: splitArea
+                        objectName: "splitter"
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        preventStealing: true
+                        cursorShape: Qt.SplitHCursor
+                        onPositionChanged: mouse => {
+                            if (!pressed) return
+                            const x = mapToItem(lower, mouse.x, 0).x
+                            // Right-to-left puts the queue on the left, so the share flips.
+                            backend.queueRatio = LayoutMirroring.enabled ? x / lower.width : 1 - x / lower.width
+                        }
+                        onDoubleClicked: backend.queueRatio = 1 / 3
                     }
                 }
             }

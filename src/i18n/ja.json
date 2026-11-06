@@ -52,5 +52,17 @@
   "Clear filter": "フィルターをクリア",
   "No music found": "音楽が見つかりません",
   "Press %1 to choose a music folder.": "%1 を押してミュージックフォルダーを選択します。",
-  "Press %1 for shortcuts": "%1 でショートカットを表示"
+  "Press %1 for shortcuts": "%1 でショートカットを表示",
+  "Queue": "キュー",
+  "Clear": "クリア",
+  "Nothing queued": "キューは空です",
+  "Press %1 on a track to add it, or %2 to play it next.": "トラックで %1 を押すと追加、%2 を押すと次に再生します。",
+  "Play next": "次に再生",
+  "Add to queue": "キューに追加",
+  "Remove from queue": "キューから削除",
+  "Clear the queue": "キューをクリア",
+  "Move in the queue": "キュー内で移動",
+  "Undo / redo": "元に戻す / やり直す",
+  "Resize the queue pane": "キューのサイズを変更",
+  "Reset pane sizes": "パネルサイズをリセット"
 }

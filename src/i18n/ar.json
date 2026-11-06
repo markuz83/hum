@@ -57,5 +57,17 @@
   "Clear filter": "مسح التصفية",
   "No music found": "لم يتم العثور على موسيقى",
   "Press %1 to choose a music folder.": "اضغط %1 لاختيار مجلد موسيقى.",
-  "Press %1 for shortcuts": "اضغط %1 لعرض الاختصارات"
+  "Press %1 for shortcuts": "اضغط %1 لعرض الاختصارات",
+  "Queue": "قائمة الانتظار",
+  "Clear": "مسح",
+  "Nothing queued": "لا شيء في قائمة الانتظار",
+  "Press %1 on a track to add it, or %2 to play it next.": "اضغط %1 على مقطع لإضافته، أو %2 لتشغيله تاليًا.",
+  "Play next": "تشغيل التالي",
+  "Add to queue": "إضافة إلى قائمة الانتظار",
+  "Remove from queue": "إزالة من قائمة الانتظار",
+  "Clear the queue": "مسح قائمة الانتظار",
+  "Move in the queue": "التحرك في قائمة الانتظار",
+  "Undo / redo": "تراجع / إعادة",
+  "Resize the queue pane": "تغيير حجم قائمة الانتظار",
+  "Reset pane sizes": "إعادة ضبط أحجام اللوحات"
 }

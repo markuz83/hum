@@ -53,5 +53,17 @@
   "Clear filter": "Ryd filter",
   "No music found": "Ingen musik fundet",
   "Press %1 to choose a music folder.": "Tryk %1 for at vælge en musikmappe.",
-  "Press %1 for shortcuts": "Tryk %1 for genveje"
+  "Press %1 for shortcuts": "Tryk %1 for genveje",
+  "Queue": "Kø",
+  "Clear": "Ryd",
+  "Nothing queued": "Intet i køen",
+  "Press %1 on a track to add it, or %2 to play it next.": "Tryk %1 på et nummer for at tilføje det, eller %2 for at spille det næste.",
+  "Play next": "Spil næste",
+  "Add to queue": "Føj til kø",
+  "Remove from queue": "Fjern fra kø",
+  "Clear the queue": "Ryd køen",
+  "Move in the queue": "Flyt i køen",
+  "Undo / redo": "Fortryd / gentag",
+  "Resize the queue pane": "Tilpas størrelsen på køen",
+  "Reset pane sizes": "Nulstil panelstørrelser"
 }

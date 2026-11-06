@@ -138,7 +138,7 @@ Mpris::Mpris(Backend *backend, const QString &name, const QString &artDirectory,
     connect(&m_debounce, &QTimer::timeout, this, &Mpris::publish);
     for (auto signal : {&Backend::currentChanged, &Backend::playingChanged, &Backend::modeChanged,
                         &Backend::volumeChanged, &Backend::coverChanged, &Backend::durationChanged,
-                        &Backend::browserChanged})
+                        &Backend::browserChanged, &Backend::queueChanged})
         connect(backend, signal, this, &Mpris::schedule);
     m_last = snapshot();
     m_lastMetadata = metadataSignature();

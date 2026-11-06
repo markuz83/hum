@@ -20,6 +20,7 @@ Item {
 
     signal picked(int index)
     signal clicked()
+    signal contextRequested(int index)
 
     ColumnLayout {
         anchors.fill: parent
@@ -74,6 +75,14 @@ Item {
                     onTapped: {
                         column.clicked()
                         column.picked(index)
+                    }
+                }
+                // Right-click offers play, play next, and add to queue.
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: {
+                        column.clicked()
+                        column.contextRequested(index)
                     }
                 }
             }

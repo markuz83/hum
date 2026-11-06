@@ -406,6 +406,176 @@ private slots:
         QTRY_COMPARE(backend.playbackState(), QString("Paused"));
     }
 
+    void queueKeepsOrderAndPlaysBeforeTheLibrary()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        backend.setVolume(0);
+        ready(backend, dir, {"a.mp3", "b.mp3", "c.mp3", "d.mp3"});
+        auto titles = [&] {
+            QStringList out;
+            for (const auto &item : backend.queue())
+                out << item.toMap().value("title").toString();
+            return out;
+        };
+
+        backend.enqueue(2);                       // c to the end
+        backend.enqueue(3);                       // then d
+        backend.enqueue(1, true);                 // b to the front
+        QCOMPARE(titles(), QStringList({"b", "c", "d"}));
+
+        // Playing through the queue takes entries off the front, ahead of the list.
+        backend.play(0);                          // a
+        backend.next();
+        QCOMPARE(backend.title(), QString("b"));
+        QCOMPARE(titles(), QStringList({"c", "d"}));
+        backend.next();
+        backend.next();
+        QCOMPARE(backend.title(), QString("d"));
+        QVERIFY(backend.queue().isEmpty());
+        // With the queue empty the library carries on after the track that played.
+        backend.next();
+        QCOMPARE(backend.currentRow(), 0);        // d was last, so it wraps to a
+    }
+
+    void libraryContinuesAfterAQueuedTrackNotFromTheTop()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        backend.setVolume(0);
+        ready(backend, dir, {"a.mp3", "b.mp3", "c.mp3", "d.mp3"});
+        backend.selectArtist(0);
+        backend.enqueue(1);                       // b
+        backend.play(2);                          // c is playing
+        backend.next();                           // queue first: b
+        QCOMPARE(backend.title(), QString("b"));
+        backend.setFilter("");                    // b is visible, so the list carries on after it
+        backend.next();
+        QCOMPARE(backend.title(), QString("c"));
+    }
+
+    void queueGroupsAndWholeListsAreAdded()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        ready(backend, dir, {"Bowie/Low/a.mp3", "Bowie/Low/b.mp3", "Bowie/Heroes/c.mp3", "Eno/Apollo/d.mp3"});
+        backend.enqueueGroup(0, 2);               // artist row 2 is Eno
+        QCOMPARE(backend.queue().size(), 1);
+        backend.clearQueue();
+        backend.selectArtist(1);                  // Bowie
+        backend.enqueueGroup(1, 0);               // all of Bowie's albums
+        QCOMPARE(backend.queue().size(), 3);
+        backend.clearQueue();
+        backend.enqueueGroup(1, 2);               // album row 2 is Low
+        QCOMPARE(backend.queue().size(), 2);
+        backend.clearQueue();
+        backend.selectArtist(0);
+        backend.enqueueVisible();
+        QCOMPARE(backend.queue().size(), 4);
+        backend.enqueueVisible(true);             // play-next puts a block in front, in order
+        QCOMPARE(backend.queue().size(), 8);
+    }
+
+    void queueCanBeReorderedRemovedAndUndone()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        ready(backend, dir, {"a.mp3", "b.mp3", "c.mp3"});
+        auto titles = [&] {
+            QStringList out;
+            for (const auto &item : backend.queue())
+                out << item.toMap().value("title").toString();
+            return out;
+        };
+        for (int i = 0; i < 3; ++i)
+            backend.enqueue(i);
+        backend.moveInQueue(0, 2);
+        QCOMPARE(titles(), QStringList({"b", "c", "a"}));
+        backend.moveInQueue(5, 0);                // out of range: ignored
+        QCOMPARE(titles(), QStringList({"b", "c", "a"}));
+        backend.removeFromQueue(1);
+        QCOMPARE(titles(), QStringList({"b", "a"}));
+        backend.clearQueue();
+        QVERIFY(titles().isEmpty());
+
+        backend.undoQueue();                      // un-clear
+        QCOMPARE(titles(), QStringList({"b", "a"}));
+        backend.undoQueue();                      // un-remove
+        QCOMPARE(titles(), QStringList({"b", "c", "a"}));
+        backend.redoQueue();
+        QCOMPARE(titles(), QStringList({"b", "a"}));
+        // A new edit starts history over, so redo no longer applies.
+        backend.enqueue(0);
+        backend.redoQueue();
+        QCOMPARE(titles(), QStringList({"b", "a", "a"}));
+    }
+
+    void playFromQueueTakesThatEntryOut()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        backend.setVolume(0);
+        ready(backend, dir, {"a.mp3", "b.mp3", "c.mp3"});
+        backend.enqueue(0);
+        backend.enqueue(1);
+        backend.enqueue(2);
+        backend.playFromQueue(1);
+        QCOMPARE(backend.title(), QString("b"));
+        QCOMPARE(backend.queue().size(), 2);
+        backend.undoQueue();                      // playing wasn't an edit, so nothing to undo
+        QCOMPARE(backend.queue().size(), 2);
+    }
+
+    void queueAndPaneSizeAreRemembered()
+    {
+        QTemporaryDir dir;
+        const QString state = dir.path() + "/state.json";
+        touch(dir.path() + "/lib/a.mp3");
+        touch(dir.path() + "/lib/b.mp3");
+        const QString lib = dir.path() + "/lib";
+        {
+            Backend backend;
+            backend.setStateFile(state);
+            backend.setCacheFile(dir.path() + "/tags.json");
+            QSignalSpy scanned(&backend, &Backend::scanningChanged);
+            backend.open(lib);
+            while (backend.scanning() || scanned.isEmpty())
+                scanned.wait(2000);
+            while (backend.reading())
+                QTest::qWait(50);
+            backend.enqueue(1);
+            backend.setQueueRatio(0.45);
+            backend.saveState();
+        }
+        // An entry for a file that has since vanished is dropped, the rest stay.
+        write(state, QByteArray("{\"queueRatio\": 0.45, \"queue\": [\"") + lib.toUtf8() + "/b.mp3\", \"/gone/x.mp3\"]}");
+        Backend again;
+        again.setStateFile(state);
+        again.setCacheFile(dir.path() + "/tags.json");
+        QCOMPARE(again.queueRatio(), 0.45);
+        // Nothing can be shown for the saved queue until the library has been
+        // read, so the queue announces itself again once it has.
+        QVERIFY(again.queue().isEmpty());
+        QSignalSpy queueSpy(&again, &Backend::queueChanged);
+        QSignalSpy scanned(&again, &Backend::scanningChanged);
+        again.open(lib);
+        while (again.scanning() || scanned.isEmpty())
+            scanned.wait(2000);
+        QVERIFY(!queueSpy.isEmpty());
+        QCOMPARE(again.queue().size(), 1);
+        QCOMPARE(again.queue().first().toMap().value("title").toString(), QString("b"));
+    }
+
+    void queueRatioStaysInRange()
+    {
+        Backend backend;
+        QCOMPARE(backend.queueRatio(), 1.0 / 3.0);
+        backend.setQueueRatio(0.99);
+        QCOMPARE(backend.queueRatio(), 0.6);
+        backend.setQueueRatio(0.0);
+        QCOMPARE(backend.queueRatio(), 0.15);
+    }
+
     void emptyLibraryIsReported()
     {
         QTemporaryDir dir;

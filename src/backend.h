@@ -31,6 +31,11 @@ class Backend : public QObject {
     Q_PROPERTY(QString title READ title NOTIFY currentChanged)
     Q_PROPERTY(QString artist READ artist NOTIFY currentChanged)
     Q_PROPERTY(QString album READ album NOTIFY currentChanged)
+    // The play queue: tracks that play next, before the library carries on.
+    // Each entry is {title, artist, album}. queueRatio is the share of the
+    // window width the queue pane takes, which the user can change.
+    Q_PROPERTY(QVariantList queue READ queue NOTIFY queueChanged)
+    Q_PROPERTY(qreal queueRatio READ queueRatio WRITE setQueueRatio NOTIFY layoutChanged)
     Q_PROPERTY(bool hasCover READ hasCover NOTIFY coverChanged)
     Q_PROPERTY(int coverId READ coverId NOTIFY coverChanged)
     Q_PROPERTY(bool reading READ reading NOTIFY readingChanged)
@@ -84,7 +89,11 @@ public:
     // "Playing", "Paused" or "Stopped", as MPRIS names them.
     QString playbackState() const;
     int visualizerStyle() const { return m_visualizerStyle; }
-    bool canGoNext() const { return !m_visible.isEmpty(); }
+    bool canGoNext() const { return !m_queue.isEmpty() || !m_visible.isEmpty(); }
+    QVariantList queue() const;
+    qreal queueRatio() const { return m_queueRatio; }
+    QStringList queuePaths() const { return m_queue; }
+    void setQueueRatio(qreal ratio);
     int libraryCount() const { return m_tracks.size(); }
     QVariantList levels() const { return m_levelList; }
 
@@ -121,6 +130,17 @@ public:
     // Opens the desktop's folder chooser and makes the choice the library.
     Q_INVOKABLE void chooseLibrary();
     void setFilePicker(FilePicker *picker);
+    // Queue editing. Rows count from 0 in the title column or the queue.
+    Q_INVOKABLE void enqueue(int row, bool playNext = false);
+    Q_INVOKABLE void enqueueVisible(bool playNext = false);
+    // column 0 is artists and 1 is albums; row 0 of either means "all".
+    Q_INVOKABLE void enqueueGroup(int column, int row, bool playNext = false);
+    Q_INVOKABLE void removeFromQueue(int row);
+    Q_INVOKABLE void moveInQueue(int from, int to);
+    Q_INVOKABLE void clearQueue();
+    Q_INVOKABLE void playFromQueue(int row);
+    Q_INVOKABLE void undoQueue();
+    Q_INVOKABLE void redoQueue();
     Q_INVOKABLE void selectArtist(int row);
     Q_INVOKABLE void selectAlbum(int row);
     Q_INVOKABLE void play(int row);
@@ -144,6 +164,8 @@ public:
 signals:
     void browserChanged();
     void coverChanged();
+    void queueChanged();
+    void layoutChanged();
     void readingChanged();
     void currentChanged();
     void playingChanged();
@@ -167,6 +189,16 @@ private:
     };
 
     void loadState();
+    // Queue plumbing: paths survive the library re-sorting, so the queue
+    // holds paths and looks tracks up when it needs them.
+    int indexOfPath(const QString &path) const;
+    void setQueue(const QStringList &queue, bool recordUndo = true);
+    void insertIntoQueue(const QStringList &paths, bool playNext);
+    bool playPath(const QString &path);
+    // The row that plays after the current one, or -1 at the end of the list.
+    // When the current track isn't in the visible list (it came from the
+    // queue), the library carries on from where that track sits in it.
+    int nextRow(bool wrap) const;
     void scheduleSave();
     void finishScan(const QStringList &paths);
     void finishReading(const TagResult &result);
@@ -180,7 +212,11 @@ private:
     void tick();
 
     QList<Track> m_tracks;
-    QList<int> m_visible;  // indexes into m_tracks shown in the title column
+    QList<int> m_visible;
+    QList<int> m_matching;  // tracks passing the filter, whatever the artist and album chosen
+    QStringList m_queue;
+    QList<QStringList> m_queueUndo, m_queueRedo;
+    qreal m_queueRatio = 1.0 / 3.0;  // indexes into m_tracks shown in the title column
     QStringList m_artistValues, m_albumValues;
     bool m_allArtists = true, m_allAlbums = true;
     QString m_artistSel, m_albumSel;
