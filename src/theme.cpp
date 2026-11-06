@@ -11,7 +11,7 @@
 #include <QStandardPaths>
 #include <cmath>
 
-Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl)
+Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl, const QString &fcMatch)
     : QObject(parent),
       m_directory(directory.isEmpty() ? QDir::homePath() + "/.local/state/omarchy/current" : directory),
       m_togglesDirectory(directory.isEmpty() ? QDir::homePath() + "/.local/state/omarchy/toggles/hypr"
@@ -28,6 +28,24 @@ Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl)
     m_hyprctl = !hyprctl.isEmpty() ? hyprctl
               : directory.isEmpty() && !qEnvironmentVariableIsEmpty("HYPRLAND_INSTANCE_SIGNATURE")
                   ? QStandardPaths::findExecutable("hyprctl") : QString();
+    // Fontconfig is the source of truth for the font, and `omarchy font set`
+    // rewrites ~/.config/fontconfig/fonts.conf, so watch that and ask
+    // fc-match what "monospace" resolves to. Tests pass their own fc-match.
+    m_fcMatch = !fcMatch.isEmpty() ? fcMatch : directory.isEmpty() ? QStandardPaths::findExecutable("fc-match") : QString();
+    m_fontsDirectory = directory.isEmpty() ? QDir::homePath() + "/.config/fontconfig" : directory + "/fontconfig";
+    m_fontTimeout.setSingleShot(true);
+    m_fontTimeout.setInterval(1000);
+    connect(&m_fontTimeout, &QTimer::timeout, &m_fontProcess, &QProcess::kill);
+    connect(&m_fontProcess, &QProcess::errorOccurred, this, [this] { m_fontTimeout.stop(); });
+    connect(&m_fontProcess, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
+        m_fontTimeout.stop();
+        const QString family = QString::fromUtf8(m_fontProcess.readAllStandardOutput()).section('\n', 0, 0).section(',', 0, 0).trimmed();
+        if (code != 0 || status != QProcess::NormalExit || family.isEmpty() || family == m_fontFamily)
+            return;
+        m_fontFamily = family;
+        emit changed();
+    });
+
     m_roundingTimeout.setSingleShot(true);
     m_roundingTimeout.setInterval(500);
     connect(&m_roundingTimeout, &QTimer::timeout, &m_roundingProcess, &QProcess::kill);
@@ -50,6 +68,10 @@ Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl)
 }
 
 Theme::~Theme() {
+    if (m_fontProcess.state() != QProcess::NotRunning) {
+        m_fontProcess.kill();
+        m_fontProcess.waitForFinished(1000);
+    }
     if (m_roundingProcess.state() != QProcess::NotRunning) {
         m_roundingProcess.kill();
         m_roundingProcess.waitForFinished(1000);
@@ -61,6 +83,13 @@ void Theme::refreshRounding() {
         return;
     m_roundingProcess.start(m_hyprctl, {"-j", "getoption", "decoration:rounding"});
     m_roundingTimeout.start();
+}
+
+void Theme::refreshFont() {
+    if (m_fcMatch.isEmpty() || m_fontProcess.state() != QProcess::NotRunning)
+        return;
+    m_fontProcess.start(m_fcMatch, {"monospace", "-f", "%{family}\n"});
+    m_fontTimeout.start();
 }
 
 QString Theme::readColor(const QString &path, const QString &key, const QString &fallback) {
@@ -121,6 +150,7 @@ QString Theme::accentForeground() const {
 
 void Theme::reload() {
     refreshRounding();
+    refreshFont();
     const auto paths = m_watcher.files() + m_watcher.directories();
     if (!paths.isEmpty())
         m_watcher.removePaths(paths);
@@ -139,6 +169,11 @@ void Theme::reload() {
     QStringList candidates{ancestor, QFileInfo(ancestor).absolutePath(), m_directory,
                            m_directory + "/theme", m_directory + "/theme/colors.toml",
                            togglesAncestor, m_togglesDirectory};
+    // The fontconfig folder may not exist until the user first picks a font.
+    QString fontsAncestor = m_fontsDirectory;
+    while (!QFileInfo::exists(fontsAncestor) && fontsAncestor != "/")
+        fontsAncestor = QFileInfo(fontsAncestor).absolutePath();
+    candidates << fontsAncestor << m_fontsDirectory << m_fontsDirectory + "/fonts.conf";
     candidates.removeDuplicates();
     for (const auto &path : candidates)
         if (QFileInfo::exists(path))

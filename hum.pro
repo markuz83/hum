@@ -7,6 +7,7 @@ TEMPLATE = app
 HEADERS += \
     src/analyzer.h \
     src/backend.h \
+    src/coverprovider.h \
     src/theme.h \
     src/translator.h
 

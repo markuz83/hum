@@ -17,12 +17,14 @@ class Theme : public QObject {
     Q_PROPERTY(QString raised READ raised NOTIFY changed)
     Q_PROPERTY(QString danger READ danger NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
+    Q_PROPERTY(QString fontFamily READ fontFamily NOTIFY changed)
     Q_PROPERTY(int radius READ radius NOTIFY changed)
     Q_PROPERTY(QString windowMode READ windowMode NOTIFY changed)
     Q_PROPERTY(qreal windowAlpha READ windowAlpha NOTIFY changed)
 
 public:
-    explicit Theme(const QString &currentDirectory = {}, QObject *parent = nullptr, const QString &hyprctl = {});
+    explicit Theme(const QString &currentDirectory = {}, QObject *parent = nullptr, const QString &hyprctl = {},
+                   const QString &fcMatch = {});
     ~Theme() override;
 
     QString accent() const { return m_accent; }
@@ -36,6 +38,8 @@ public:
     QString raised() const { return m_colors.value("lighter_background"); }
     QString danger() const { return m_colors.value("red"); }
     bool dark() const { return m_dark; }
+    // Omarchy's monospace font, from fontconfig, which `omarchy font set` writes.
+    QString fontFamily() const { return m_fontFamily; }
     int radius() const { return m_radius; }
     // Omarchy's Appearance > Windows > Window Opacity: opaque, transparent, or glassy.
     QString windowMode() const { return m_windowMode; }
@@ -53,6 +57,7 @@ signals:
 private:
     void reload();
     void refreshRounding();
+    void refreshFont();
 
     QString m_directory;
     QString m_togglesDirectory;
@@ -65,6 +70,11 @@ private:
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;
     QString m_hyprctl;
+    QString m_fcMatch;
+    QString m_fontsDirectory;
+    QString m_fontFamily = "monospace";
+    QProcess m_fontProcess;
+    QTimer m_fontTimeout;
     int m_radius = 0;
     QProcess m_roundingProcess;
     QTimer m_roundingPoll, m_roundingTimeout;

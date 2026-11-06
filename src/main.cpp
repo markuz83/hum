@@ -10,6 +10,7 @@
 #include <QUrl>
 
 #include "backend.h"
+#include "coverprovider.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
+    engine.addImageProvider("cover", new CoverProvider([&backend] { return backend.cover(); }));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);

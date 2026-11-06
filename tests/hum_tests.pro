@@ -5,5 +5,5 @@ TEMPLATE = app
 
 INCLUDEPATH += ../src
 
-HEADERS += ../src/analyzer.h ../src/backend.h ../src/theme.h ../src/translator.h
+HEADERS += ../src/analyzer.h ../src/backend.h ../src/coverprovider.h ../src/theme.h ../src/translator.h
 SOURCES += hum_tests.cpp ../src/analyzer.cpp ../src/backend.cpp ../src/theme.cpp ../src/translator.cpp

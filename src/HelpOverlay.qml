@@ -17,6 +17,7 @@ Rectangle {
         ["+ −", qsTr("Volume up / down")],
         ["M", qsTr("Mute")],
         ["J K ↑ ↓", qsTr("Move in the list")],
+        ["H L Tab", qsTr("Switch column")],
         ["Enter", qsTr("Play the selected track")],
         ["/", qsTr("Filter the list")],
         ["S", qsTr("Shuffle")],
@@ -55,7 +56,6 @@ Rectangle {
                     Label {
                         text: modelData[0]
                         color: theme.accent
-                        font.family: "monospace"
                         Layout.preferredWidth: 90
                     }
                     Label {

@@ -1,5 +1,7 @@
 #include <QDir>
 #include <QFile>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -35,11 +37,11 @@ private slots:
         QTemporaryDir dir;
         Backend backend;
         ready(backend, dir, {"Bowie/Heroes.mp3", "Bowie/Low.mp3", "Eno/Ambient.mp3"});
-        QCOMPARE(backend.tracks().size(), 3);
+        QCOMPARE(backend.titles().size(), 3);
         backend.setFilter("bowie");
-        QCOMPARE(backend.tracks(), QStringList({"Bowie/Heroes", "Bowie/Low"}));
+        QCOMPARE(backend.titles(), QStringList({"Heroes", "Low"}));
         backend.setFilter("");
-        QCOMPARE(backend.tracks().size(), 3);
+        QCOMPARE(backend.titles().size(), 3);
     }
 
     void nextAndPreviousWrap()
@@ -67,6 +69,88 @@ private slots:
         QCOMPARE(backend.currentRow(), 0);
         backend.setFilter("a");
         QCOMPARE(backend.currentRow(), -1);
+    }
+
+    void probeOutputBecomesTags()
+    {
+        const auto tags = Backend::parseProbe(R"({"format": {"tags": {"TITLE": "Heroes", "ARTIST": "David Bowie",
+            "album": "Heroes", "track": "3/10", "disc": "1/2"}}})");
+        QCOMPARE(tags.title, QString("Heroes"));
+        QCOMPARE(tags.artist, QString("David Bowie"));
+        QCOMPARE(tags.album, QString("Heroes"));
+        QCOMPARE(tags.track, 3);
+        QCOMPARE(tags.disc, 1);
+        // A compilation's album artist wins over the track's artist.
+        QCOMPARE(Backend::parseProbe(R"({"format": {"tags": {"artist": "A", "album_artist": "Various"}}})").artist,
+                 QString("Various"));
+        QVERIFY(Backend::parseProbe("not json").title.isEmpty());
+    }
+
+    void foldersStandInForMissingTags()
+    {
+        auto tags = Backend::fallbackTags("Bowie/Low/Warszawa");
+        QCOMPARE(tags.artist, QString("Bowie"));
+        QCOMPARE(tags.album, QString("Low"));
+        QCOMPARE(tags.title, QString("Warszawa"));
+        tags = Backend::fallbackTags("Loose song");
+        QVERIFY(tags.artist.isEmpty());
+        QCOMPARE(tags.title, QString("Loose song"));
+    }
+
+    void columnsNarrowAsYouChoose()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        ready(backend, dir, {"Bowie/Low/b.mp3", "Bowie/Low/a.mp3", "Bowie/Heroes/c.mp3", "Eno/Apollo/d.mp3"});
+        QCOMPARE(backend.artists(), QStringList({"Bowie", "Eno"}));
+        QCOMPARE(backend.albums(), QStringList({"Apollo", "Heroes", "Low"}));
+        QCOMPARE(backend.titles().size(), 4);
+
+        backend.selectArtist(1);  // row 0 is "All", so 1 is Bowie
+        QCOMPARE(backend.albums(), QStringList({"Heroes", "Low"}));
+        QCOMPARE(backend.titles(), QStringList({"c", "a", "b"}));
+
+        backend.selectAlbum(2);
+        QCOMPARE(backend.titles(), QStringList({"a", "b"}));
+
+        backend.selectArtist(2);  // a new artist starts at All albums
+        QCOMPARE(backend.albumRow(), 0);
+        QCOMPARE(backend.titles(), QStringList({"d"}));
+        backend.selectArtist(0);
+        QCOMPARE(backend.titles().size(), 4);
+    }
+
+    void filterKeepsTheSelectionWhileItStillExists()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        ready(backend, dir, {"Bowie/Low/a.mp3", "Eno/Apollo/d.mp3"});
+        backend.selectArtist(2);
+        backend.setFilter("apollo");
+        QCOMPARE(backend.artistRow(), 1);
+        backend.setFilter("low");  // Eno is gone, so the choice falls back to All
+        QCOMPARE(backend.artistRow(), 0);
+    }
+
+    void tagsFromRealFilesGroupTheLibrary()
+    {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        // Names that disagree with the tags, so only the tags can be right.
+        make(dir.path() + "/x1.mp3", "Second", "Zed", "Z Album", 2);
+        make(dir.path() + "/x2.mp3", "First", "Zed", "Z Album", 1);
+        make(dir.path() + "/x3.mp3", "Other", "Abe", "A Album", 1);
+
+        Backend backend;
+        ready(backend, dir, {});
+        QCOMPARE(backend.artists(), QStringList({"Abe", "Zed"}));
+        QCOMPARE(backend.titles(), QStringList({"01  Other", "01  First", "02  Second"}));
+
+        // A second run reads the cache and gets the same answer.
+        QVERIFY(QFileInfo::exists(dir.path() + "/.cache/tags.json"));
+        const auto again = Backend::readTags(Backend::scan(dir.path()), dir.path() + "/.cache/tags.json");
+        QCOMPARE(again.tags.size(), 3);
     }
 
     void emptyLibraryIsReported()
@@ -206,6 +290,24 @@ private slots:
         QVERIFY(!theme.dark());
     }
 
+    void themeFollowsTheMonospaceFont()
+    {
+        QTemporaryDir dir;
+        const QString fontFile = dir.filePath("family"), command = dir.filePath("fc-match");
+        write(command, "#!/bin/sh\ncat '" + fontFile.toUtf8() + "'\n");
+        QVERIFY(QFile::setPermissions(command, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        write(fontFile, "JetBrainsMono Nerd Font,JetBrainsMono NF\n");
+
+        Theme theme(dir.path(), nullptr, {}, command);
+        QTRY_COMPARE(theme.fontFamily(), QString("JetBrainsMono Nerd Font"));
+
+        // omarchy-font-set rewrites fonts.conf, which is what the theme watches.
+        QDir(dir.path()).mkpath("fontconfig");
+        write(fontFile, "CaskaydiaMono Nerd Font\n");
+        write(dir.path() + "/fontconfig/fonts.conf", "<fontconfig/>");
+        QTRY_COMPARE(theme.fontFamily(), QString("CaskaydiaMono Nerd Font"));
+    }
+
     void themeFollowsWindowOpacity()
     {
         QTemporaryDir dir;
@@ -304,10 +406,15 @@ private:
     {
         for (const auto &file : files)
             touch(dir.path() + "/" + file);
-        QSignalSpy done(&backend, &Backend::scanningChanged);
+        // Each test gets its own tag cache, so none touch the user's.
+        backend.setCacheFile(dir.path() + "/.cache/tags.json");
+        QSignalSpy scanned(&backend, &Backend::scanningChanged);
+        QSignalSpy read(&backend, &Backend::readingChanged);
         backend.open(dir.path());
         while (backend.scanning())
-            done.wait(2000);
+            scanned.wait(2000);
+        while (backend.reading())
+            read.wait(5000);
     }
 
 
@@ -323,6 +430,17 @@ private:
             levels = analyzer.compute();
         }
         return levels;
+    }
+
+    // A short silent mp3 with tags, made with ffmpeg.
+    static void make(const QString &path, const QString &title, const QString &artist, const QString &album, int track)
+    {
+        QProcess ffmpeg;
+        ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", "0.2",
+                                "-metadata", "title=" + title, "-metadata", "artist=" + artist,
+                                "-metadata", "album=" + album, "-metadata", "track=" + QString::number(track), "-y", path});
+        QVERIFY(ffmpeg.waitForFinished(15000));
+        QCOMPARE(ffmpeg.exitCode(), 0);
     }
 
     static void write(const QString &path, const QByteArray &contents)
