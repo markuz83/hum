@@ -13,7 +13,11 @@ ApplicationWindow {
     title: backend.title.length > 0 ? backend.title + " — hum" : "hum"
     // Follows Omarchy's Window Opacity: solid, slightly see-through, or glassy
     // (which Hyprland blurs behind). Only the background fades, never the text.
-    color: Qt.rgba(ground.r, ground.g, ground.b, theme.windowAlpha)
+    // Wayland expects premultiplied alpha, and Qt clears the window with this
+    // color as given, so without premultiplying a see-through window comes out
+    // too bright.
+    color: Qt.rgba(ground.r * theme.windowAlpha, ground.g * theme.windowAlpha,
+                   ground.b * theme.windowAlpha, theme.windowAlpha)
 
     Material.theme: theme.dark ? Material.Dark : Material.Light
     Material.accent: theme.accent
