@@ -11,13 +11,24 @@
 #include <QUrl>
 
 #include "backend.h"
+#include "barlink.h"
 #include "coverprovider.h"
 #include "mpris.h"
+#include "plugininstall.h"
 #include "portalfilepicker.h"
 #include "theme.h"
 #include "translator.h"
 
 int main(int argc, char *argv[]) {
+    // `hum plugin install` needs no window, so it runs before any GUI exists.
+    if (argc >= 3 && QString(argv[1]) == "plugin" && QString(argv[2]) == "install") {
+        QCoreApplication cli(argc, argv);
+        QStringList flags;
+        for (int i = 3; i < argc; ++i)
+            flags << argv[i];
+        return installBarPlugin(flags);
+    }
+
     QGuiApplication app(argc, argv);
     app.setApplicationName("hum");
     app.setApplicationVersion("0.1.0");
@@ -55,6 +66,8 @@ int main(int argc, char *argv[]) {
 
     // Media keys, `playerctl`, and desktop media widgets control Hum through this.
     Mpris mpris(&backend);
+    // The Omarchy bar plugin draws the live spectrum from this socket.
+    BarLink barLink(&backend);
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);

@@ -10,6 +10,8 @@
 #include "analyzer.h"
 #include "backend.h"
 #include "mpris.h"
+#include "barlink.h"
+#include <QLocalSocket>
 #include "filepicker.h"
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -338,6 +340,70 @@ private slots:
         backend.setVolume(0.5);
         backend.saveState();
         QVERIFY(QDir(dir.path()).isEmpty());
+    }
+
+    void barLinkEncodesBarsAndTracks()
+    {
+        QVariantList levels;
+        for (int i = 0; i < 48; ++i)
+            levels << (i < 24 ? 1.0 : 0.0);
+        // 48 bands pool down to 4 bars: two full, two empty.
+        QCOMPARE(BarLink::encodeLevels(levels, 4), QString("L 99 99 0 0"));
+        QCOMPARE(BarLink::encodeLevels({}, 4), QString("L"));
+        // A lone peak survives pooling instead of being averaged away.
+        QVariantList spike;
+        for (int i = 0; i < 48; ++i)
+            spike << (i == 5 ? 0.8 : 0.0);
+        QCOMPARE(BarLink::encodeLevels(spike, 4), QString("L 79 0 0 0"));
+        // Tabs and newlines would break the framing, so they become spaces.
+        QCOMPARE(BarLink::encodeTrack("Two\nLines\tHere", "Some Artist"), QString("N Two Lines Here\tSome Artist"));
+        QCOMPARE(BarLink::encodeTrack(QString(500, 'x'), "").section('\t', 0, 0).size(), 2 + 200);
+    }
+
+    void barLinkGreetsStreamsAndObeys()
+    {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        make(dir.path() + "/1.mp3", "First", "Zed", "Z Album", 1);
+        make(dir.path() + "/2.mp3", "Second", "Zed", "Z Album", 2);
+        Backend backend;
+        backend.setVolume(0.5);
+        ready(backend, dir, {});
+
+        BarLink link(&backend, dir.path() + "/bar.sock");
+        QVERIFY(link.listening());
+
+        // Client and server share this thread, so lines are gathered as the
+        // event loop delivers them rather than by blocking reads.
+        QLocalSocket client;
+        QStringList lines;
+        QObject::connect(&client, &QLocalSocket::readyRead, [&] {
+            while (client.canReadLine())
+                lines << QString::fromUtf8(client.readLine()).trimmed();
+        });
+        client.connectToServer(link.path());
+        // The greeting says what is playing before anything has happened.
+        QTRY_VERIFY(lines.size() >= 2);
+        QCOMPARE(lines[0], QString("S Stopped"));
+        QCOMPARE(lines[1], QString("N"));  // no track yet; trimming drops the trailing tab
+
+        // A command from the bar starts playback, and the stream follows.
+        client.write("playpause\n");
+        QTRY_VERIFY(lines.contains("S Playing"));
+        QTRY_VERIFY(std::any_of(lines.begin(), lines.end(), [](const QString &l) { return l.startsWith("L "); }));
+        QTRY_VERIFY(lines.contains("N First\tZed"));
+        for (const auto &line : lines)
+            if (line.startsWith("L "))
+                QCOMPARE(line.split(' ').size(), 25);  // "L" plus 24 bars
+        QCOMPARE(backend.currentRow(), 0);
+
+        // Volume moves in percent, and unknown lines are ignored.
+        client.write("volume -20\nnonsense\nnext\n");
+        QTRY_COMPARE(backend.currentRow(), 1);
+        QTRY_COMPARE(backend.volume(), 0.3);
+        client.write("playpause\n");
+        QTRY_COMPARE(backend.playbackState(), QString("Paused"));
     }
 
     void emptyLibraryIsReported()

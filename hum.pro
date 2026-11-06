@@ -9,6 +9,8 @@ HEADERS += \
     src/backend.h \
     src/coverprovider.h \
     src/mpris.h \
+    src/plugininstall.h \
+    src/barlink.h \
     src/filepicker.h \
     src/portalfilepicker.h \
     src/theme.h \
@@ -17,6 +19,8 @@ HEADERS += \
 SOURCES += \
     src/main.cpp \
     src/mpris.cpp \
+    src/plugininstall.cpp \
+    src/barlink.cpp \
     src/portalfilepicker.cpp \
     src/analyzer.cpp \
     src/backend.cpp \

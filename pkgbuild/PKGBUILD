@@ -20,4 +20,8 @@ package() {
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "$startdir/hum.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/hum.svg"
   install -Dm644 "$startdir/hum.desktop" "$pkgdir/usr/share/applications/hum.desktop"
+  # The Omarchy bar plugin, which `hum plugin install` copies into place.
+  for file in manifest.json BarWidget.qml Protocol.js README.md LICENSE; do
+    install -Dm644 "omarchy-plugin/$file" "$pkgdir/usr/share/hum/omarchy-plugin/$file"
+  done
 }
