@@ -686,7 +686,7 @@ private slots:
         QVector<float> silence(Analyzer::FftSize, 0.0f);
         analyzer.push(silence.constData(), silence.size(), 44100);
         QVector<float> after;
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 16; ++i)
             after = analyzer.compute();
         QVERIFY(after[peak] < before[peak] * 0.9f);
         QVERIFY(after[peak] > 0.0f);

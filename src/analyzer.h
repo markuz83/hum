@@ -13,7 +13,7 @@ class Analyzer {
 public:
     static constexpr int FftSize = 2048;
 
-    explicit Analyzer(int bands = 48, int framerate = 30);
+    explicit Analyzer(int bands = 48, int framerate = 60);
 
     int bands() const { return m_bands; }
     // Lower edge of a band in Hz, so tests and callers can reason about pitch.

@@ -87,7 +87,8 @@ Backend::Backend(QObject *parent) : QObject(parent), m_tap(this) {
         connect(this, signal, this, &Backend::scheduleSave);
     connect(qApp, &QCoreApplication::aboutToQuit, this, &Backend::saveState);
 
-    m_frames.setInterval(33);
+    m_frames.setInterval(16);
+    m_frames.setTimerType(Qt::PreciseTimer);
     connect(&m_frames, &QTimer::timeout, this, &Backend::tick);
     connect(&m_watcher, &QFutureWatcher<QStringList>::finished, this, [this] { finishScan(m_watcher.result()); });
     connect(&m_tagWatcher, &QFutureWatcher<TagResult>::finished, this, [this] { finishReading(m_tagWatcher.result()); });
@@ -952,7 +953,7 @@ QString Backend::playbackState() const {
     }
 }
 
-// Runs about thirty times a second: feed the analyzer the audio that has just
+// Runs about sixty times a second: feed the analyzer the audio that has just
 // reached the speakers, and publish the bar heights.
 void Backend::tick() {
     QVector<float> levels;
