@@ -31,7 +31,7 @@ Item {
             font.pixelSize: 12
             font.capitalization: Font.AllUppercase
             font.letterSpacing: 1
-            color: column.active ? theme.accent : theme.muted
+            color: column.active ? theme.accent : theme.dim
             Layout.leftMargin: 10
         }
 
@@ -56,7 +56,7 @@ Item {
                     anchors.fill: parent
                     radius: Math.min(4, theme.radius)
                     color: parent.ListView.isCurrentItem
-                           ? (column.active ? theme.selection : theme.raised)
+                           ? (column.active ? theme.highlight : theme.raised)
                            : rowHover.hovered ? theme.raised : "transparent"
                 }
                 Label {
@@ -66,7 +66,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: column.label(modelData, index)
                     elide: Text.ElideRight
-                    color: playingRow ? theme.accent : modelData === null ? theme.muted : theme.foreground
+                    color: playingRow ? theme.accent : modelData === null ? theme.dim : theme.foreground
                     font.bold: playingRow
                 }
                 HoverHandler { id: rowHover }

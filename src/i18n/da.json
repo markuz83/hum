@@ -44,5 +44,14 @@
   "Choose a music folder": "Vælg en musikmappe",
   "Choose music folder": "Vælg musikmappe",
   "Couldn't open the folder chooser: %1": "Kunne ikke åbne mappevælgeren: %1",
-  "no D-Bus session": "ingen D-Bus-session"
+  "no D-Bus session": "ingen D-Bus-session",
+  "Paused": "Sat på pause",
+  "Play": "Afspil",
+  "Pause": "Pause",
+  "Unmute": "Slå lyden til",
+  "Dismiss": "Luk",
+  "Clear filter": "Ryd filter",
+  "No music found": "Ingen musik fundet",
+  "Press %1 to choose a music folder.": "Tryk %1 for at vælge en musikmappe.",
+  "Press %1 for shortcuts": "Tryk %1 for genveje"
 }

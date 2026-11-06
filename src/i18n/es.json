@@ -45,5 +45,14 @@
   "Choose a music folder": "Elegir una carpeta de música",
   "Choose music folder": "Elegir carpeta de música",
   "Couldn't open the folder chooser: %1": "No se pudo abrir el selector de carpetas: %1",
-  "no D-Bus session": "sin sesión de D-Bus"
+  "no D-Bus session": "sin sesión de D-Bus",
+  "Paused": "En pausa",
+  "Play": "Reproducir",
+  "Pause": "Pausa",
+  "Unmute": "Activar sonido",
+  "Dismiss": "Cerrar",
+  "Clear filter": "Borrar filtro",
+  "No music found": "No se encontró música",
+  "Press %1 to choose a music folder.": "Pulsa %1 para elegir una carpeta de música.",
+  "Press %1 for shortcuts": "Pulsa %1 para ver los atajos"
 }

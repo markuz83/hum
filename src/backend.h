@@ -35,6 +35,7 @@ class Backend : public QObject {
     Q_PROPERTY(int coverId READ coverId NOTIFY coverChanged)
     Q_PROPERTY(bool reading READ reading NOTIFY readingChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+    Q_PROPERTY(QString playbackState READ playbackState NOTIFY playingChanged)
     Q_PROPERTY(qint64 position READ position NOTIFY positionChanged)
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)

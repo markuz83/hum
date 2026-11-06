@@ -48,5 +48,14 @@
   "Choose a music folder": "اختر مجلد موسيقى",
   "Choose music folder": "اختيار مجلد الموسيقى",
   "Couldn't open the folder chooser: %1": "تعذر فتح منتقي المجلدات: %1",
-  "no D-Bus session": "لا توجد جلسة D-Bus"
+  "no D-Bus session": "لا توجد جلسة D-Bus",
+  "Paused": "متوقف مؤقتًا",
+  "Play": "تشغيل",
+  "Pause": "إيقاف مؤقت",
+  "Unmute": "إلغاء الكتم",
+  "Dismiss": "إغلاق",
+  "Clear filter": "مسح التصفية",
+  "No music found": "لم يتم العثور على موسيقى",
+  "Press %1 to choose a music folder.": "اضغط %1 لاختيار مجلد موسيقى.",
+  "Press %1 for shortcuts": "اضغط %1 لعرض الاختصارات"
 }

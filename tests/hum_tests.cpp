@@ -525,8 +525,43 @@ private slots:
         QCOMPARE(theme.muted(), QString("#9893a5"));
         QCOMPARE(theme.danger(), QString("#B4637A"));
         QVERIFY(!theme.dark());
-        // No lighter_background in this theme, so panels use the selection color.
-        QCOMPARE(theme.raised(), QString("#DFDAD9"));
+        // No lighter_background in this theme, so panels start from the selection
+        // color and are darkened, toward this light theme's text, until they show.
+        QVERIFY(QColor(theme.raised()) != QColor("#DFDAD9"));
+        QVERIFY(Theme::contrastRatio(QColor(theme.raised()), QColor("#FAF4ED")) >= 1.6);
+    }
+
+    void dimTextAndHighlightsStayReadable()
+    {
+        QTemporaryDir dir;
+        QDir(dir.path()).mkpath("theme");
+        // A theme whose muted and selection colors are barely visible on its
+        // background, like the ones that looked washed out on glass.
+        write(dir.path() + "/theme/colors.toml",
+              "background = \"#0B0F14\"\nforeground = \"#7CFFB2\"\nmuted = \"#2a3340\"\nselection = \"#0e1319\"\n");
+        Theme theme(dir.path());
+        const QColor background(theme.background());
+        // Transparent, the default here, asks for more than a solid window.
+        QVERIFY(Theme::contrastRatio(QColor(theme.dim()), background) >= 6.5);
+        QVERIFY(Theme::contrastRatio(QColor(theme.highlight()), background) >= 2.1);
+        QVERIFY(Theme::contrastRatio(QColor(theme.raised()), background) >= 1.6);
+        // The brightened color stays in the theme: it is the muted color mixed toward the foreground.
+        QVERIFY(QColor(theme.dim()) != QColor(theme.foreground()));
+
+        QDir(dir.path()).mkpath("toggles/hypr");
+        touch(dir.path() + "/toggles/hypr/window-opaque.lua");
+        QTRY_COMPARE(theme.windowMode(), QString("opaque"));
+        QVERIFY(Theme::contrastRatio(QColor(theme.dim()), background) >= 4.6);
+        QVERIFY(Theme::contrastRatio(QColor(theme.dim()), background) < 6.5);
+    }
+
+    void aColorThatAlreadyReadsIsLeftAlone()
+    {
+        const QColor background("#000000"), fine("#cccccc");
+        QCOMPARE(Theme::ensureContrast(fine, QColor("#ffffff"), background, 4.5), fine);
+        // Unreachable targets end at the destination color rather than looping.
+        QCOMPARE(Theme::ensureContrast(QColor("#101010"), QColor("#202020"), background, 21), QColor("#202020"));
+        QVERIFY(qFuzzyCompare(Theme::contrastRatio(QColor("#ffffff"), background), 21.0));
     }
 
     void themeFollowsAThemeSwitch()

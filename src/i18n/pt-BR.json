@@ -45,5 +45,14 @@
   "Choose a music folder": "Escolher uma pasta de música",
   "Choose music folder": "Escolher pasta de música",
   "Couldn't open the folder chooser: %1": "Não foi possível abrir o seletor de pastas: %1",
-  "no D-Bus session": "sem sessão D-Bus"
+  "no D-Bus session": "sem sessão D-Bus",
+  "Paused": "Pausado",
+  "Play": "Tocar",
+  "Pause": "Pausar",
+  "Unmute": "Ativar som",
+  "Dismiss": "Fechar",
+  "Clear filter": "Limpar filtro",
+  "No music found": "Nenhuma música encontrada",
+  "Press %1 to choose a music folder.": "Pressione %1 para escolher uma pasta de música.",
+  "Press %1 for shortcuts": "Pressione %1 para ver os atalhos"
 }

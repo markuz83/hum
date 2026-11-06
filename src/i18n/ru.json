@@ -46,5 +46,14 @@
   "Choose a music folder": "Выберите папку с музыкой",
   "Choose music folder": "Выбрать папку с музыкой",
   "Couldn't open the folder chooser: %1": "Не удалось открыть выбор папки: %1",
-  "no D-Bus session": "нет сеанса D-Bus"
+  "no D-Bus session": "нет сеанса D-Bus",
+  "Paused": "Пауза",
+  "Play": "Воспроизвести",
+  "Pause": "Пауза",
+  "Unmute": "Включить звук",
+  "Dismiss": "Закрыть",
+  "Clear filter": "Очистить фильтр",
+  "No music found": "Музыка не найдена",
+  "Press %1 to choose a music folder.": "Нажмите %1, чтобы выбрать папку с музыкой.",
+  "Press %1 for shortcuts": "Нажмите %1 для списка сочетаний клавиш"
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QFileSystemWatcher>
+#include <QColor>
 #include <QHash>
 #include <QObject>
 #include <QProcess>
@@ -13,7 +14,9 @@ class Theme : public QObject {
     Q_PROPERTY(QString background READ background NOTIFY changed)
     Q_PROPERTY(QString foreground READ foreground NOTIFY changed)
     Q_PROPERTY(QString muted READ muted NOTIFY changed)
+    Q_PROPERTY(QString dim READ dim NOTIFY changed)
     Q_PROPERTY(QString selection READ selection NOTIFY changed)
+    Q_PROPERTY(QString highlight READ highlight NOTIFY changed)
     Q_PROPERTY(QString raised READ raised NOTIFY changed)
     Q_PROPERTY(QString danger READ danger NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
@@ -35,7 +38,12 @@ public:
     QString foreground() const { return m_colors.value("foreground"); }
     QString muted() const { return m_colors.value("muted"); }
     QString selection() const { return m_colors.value("selection"); }
-    QString raised() const { return m_colors.value("lighter_background"); }
+    // The same colors, nudged toward the foreground until they can be seen.
+    // A theme's own muted and selection colors are often too faint, and a
+    // see-through window makes that worse, so these are what the UI draws with.
+    QString dim() const;
+    QString highlight() const;
+    QString raised() const;
     QString danger() const { return m_colors.value("red"); }
     bool dark() const { return m_dark; }
     // Omarchy's monospace font, from fontconfig, which `omarchy font set` writes.
@@ -47,6 +55,11 @@ public:
     qreal windowAlpha() const;
 
     static QString readAccent(const QString &path);
+    // WCAG contrast ratio between two colors, 1 to 21.
+    static double contrastRatio(const QColor &a, const QColor &b);
+    // Moves `from` toward `toward` just far enough to reach `target` contrast
+    // against `background`; `from` itself if it already does.
+    static QColor ensureContrast(const QColor &from, const QColor &toward, const QColor &background, double target);
     static QString readColor(const QString &path, const QString &key, const QString &fallback);
     static bool readDark(const QString &path);
     static QString readWindowMode(const QString &togglesDirectory);

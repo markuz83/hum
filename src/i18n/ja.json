@@ -43,5 +43,14 @@
   "Choose a music folder": "ミュージックフォルダーを選択",
   "Choose music folder": "ミュージックフォルダーを選択",
   "Couldn't open the folder chooser: %1": "フォルダー選択を開けませんでした: %1",
-  "no D-Bus session": "D-Bus セッションがありません"
+  "no D-Bus session": "D-Bus セッションがありません",
+  "Paused": "一時停止中",
+  "Play": "再生",
+  "Pause": "一時停止",
+  "Unmute": "ミュート解除",
+  "Dismiss": "閉じる",
+  "Clear filter": "フィルターをクリア",
+  "No music found": "音楽が見つかりません",
+  "Press %1 to choose a music folder.": "%1 を押してミュージックフォルダーを選択します。",
+  "Press %1 for shortcuts": "%1 でショートカットを表示"
 }

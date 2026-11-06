@@ -43,5 +43,14 @@
   "Choose a music folder": "选择音乐文件夹",
   "Choose music folder": "选择音乐文件夹",
   "Couldn't open the folder chooser: %1": "无法打开文件夹选择器：%1",
-  "no D-Bus session": "没有 D-Bus 会话"
+  "no D-Bus session": "没有 D-Bus 会话",
+  "Paused": "已暂停",
+  "Play": "播放",
+  "Pause": "暂停",
+  "Unmute": "取消静音",
+  "Dismiss": "关闭",
+  "Clear filter": "清除筛选",
+  "No music found": "未找到音乐",
+  "Press %1 to choose a music folder.": "按 %1 选择音乐文件夹。",
+  "Press %1 for shortcuts": "按 %1 查看快捷键"
 }

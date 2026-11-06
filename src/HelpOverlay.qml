@@ -36,7 +36,7 @@ Rectangle {
         height: column.implicitHeight + 48
         color: theme.raised
         radius: theme.radius
-        border.color: theme.selection
+        border.color: theme.highlight
 
         ColumnLayout {
             id: column

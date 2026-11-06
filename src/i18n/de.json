@@ -44,5 +44,14 @@
   "Choose a music folder": "Musikordner auswählen",
   "Choose music folder": "Musikordner auswählen",
   "Couldn't open the folder chooser: %1": "Der Ordnerdialog konnte nicht geöffnet werden: %1",
-  "no D-Bus session": "keine D-Bus-Sitzung"
+  "no D-Bus session": "keine D-Bus-Sitzung",
+  "Paused": "Pausiert",
+  "Play": "Wiedergabe",
+  "Pause": "Pause",
+  "Unmute": "Stummschaltung aufheben",
+  "Dismiss": "Schließen",
+  "Clear filter": "Filter löschen",
+  "No music found": "Keine Musik gefunden",
+  "Press %1 to choose a music folder.": "Drücke %1, um einen Musikordner auszuwählen.",
+  "Press %1 for shortcuts": "Drücke %1 für Tastenkürzel"
 }

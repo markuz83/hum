@@ -140,6 +140,44 @@ qreal Theme::windowAlpha() const {
     return m_windowMode == "opaque" ? 1.0 : m_windowMode == "glassy" ? 0.65 : 0.985;
 }
 
+double Theme::contrastRatio(const QColor &a, const QColor &b) {
+    auto luminance = [](const QColor &c) {
+        auto linear = [](double v) { return v <= .04045 ? v / 12.92 : std::pow((v + .055) / 1.055, 2.4); };
+        return .2126 * linear(c.redF()) + .7152 * linear(c.greenF()) + .0722 * linear(c.blueF());
+    };
+    const double la = luminance(a), lb = luminance(b);
+    return (std::max(la, lb) + .05) / (std::min(la, lb) + .05);
+}
+
+QColor Theme::ensureContrast(const QColor &from, const QColor &toward, const QColor &background, double target) {
+    for (int step = 0; step <= 20; ++step) {
+        const double t = step / 20.0;
+        const QColor mixed = QColor::fromRgbF(from.redF() + (toward.redF() - from.redF()) * t,
+                                              from.greenF() + (toward.greenF() - from.greenF()) * t,
+                                              from.blueF() + (toward.blueF() - from.blueF()) * t);
+        if (contrastRatio(mixed, background) >= target)
+            return mixed;
+    }
+    return toward;
+}
+
+// A window the wallpaper shows through needs more contrast than a solid one,
+// since what is behind the text is lighter than the theme's own background.
+QString Theme::dim() const {
+    const double target = m_windowMode == "opaque" ? 4.6 : 6.5;
+    return ensureContrast(QColor(muted()), QColor(foreground()), QColor(background()), target).name();
+}
+
+QString Theme::highlight() const {
+    const double target = m_windowMode == "opaque" ? 1.7 : 2.1;
+    return ensureContrast(QColor(selection()), QColor(foreground()), QColor(background()), target).name();
+}
+
+QString Theme::raised() const {
+    const double target = m_windowMode == "opaque" ? 1.35 : 1.6;
+    return ensureContrast(QColor(m_colors.value("lighter_background")), QColor(foreground()), QColor(background()), target).name();
+}
+
 // Black or white, whichever reads on the accent (WCAG relative luminance).
 QString Theme::accentForeground() const {
     const QColor c(m_accent);

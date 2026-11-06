@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
+        <file alias="IconButton.qml">IconButton.qml</file>
         <file alias="BrowserColumn.qml">BrowserColumn.qml</file>
         <file alias="Visualizer.qml">Visualizer.qml</file>
         <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
