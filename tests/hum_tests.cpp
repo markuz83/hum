@@ -174,6 +174,36 @@ private slots:
         QCOMPARE(theme.accentForeground(), QString("white"));
     }
 
+    void themeFollowsWindowOpacity()
+    {
+        QTemporaryDir dir;
+        Theme theme(dir.path());
+        QCOMPARE(theme.windowMode(), QString("transparent"));
+        QCOMPARE(theme.windowAlpha(), 0.985);
+
+        QDir(dir.path()).mkpath("toggles/hypr");
+        touch(dir.path() + "/toggles/hypr/window-glassy.lua");
+        QTRY_COMPARE(theme.windowMode(), QString("glassy"));
+        QCOMPARE(theme.windowAlpha(), 0.65);
+
+        QFile::remove(dir.path() + "/toggles/hypr/window-glassy.lua");
+        touch(dir.path() + "/toggles/hypr/window-opaque.lua");
+        QTRY_COMPARE(theme.windowMode(), QString("opaque"));
+        QCOMPARE(theme.windowAlpha(), 1.0);
+
+        QFile::remove(dir.path() + "/toggles/hypr/window-opaque.lua");
+        QTRY_COMPARE(theme.windowMode(), QString("transparent"));
+    }
+
+    void themeNoticesTheTogglesFolderBeingCreated()
+    {
+        QTemporaryDir dir;
+        Theme theme(dir.path());
+        QDir(dir.path()).mkpath("toggles/hypr");
+        touch(dir.path() + "/toggles/hypr/window-glassy.lua");
+        QTRY_COMPARE(theme.windowMode(), QString("glassy"));
+    }
+
     void themeFollowsHyprlandRounding()
     {
         QTemporaryDir dir;

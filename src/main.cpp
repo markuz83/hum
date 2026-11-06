@@ -6,6 +6,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QUrl>
 
 #include "backend.h"
@@ -21,6 +22,10 @@ int main(int argc, char *argv[]) {
     // and the launcher pick up the installed icon.
     app.setDesktopFileName("hum");
     app.setWindowIcon(QIcon::fromTheme("hum"));
+
+    // The window background can be see-through, following Omarchy's window
+    // opacity setting, so the surface needs an alpha channel.
+    QQuickWindow::setDefaultAlphaBuffer(true);
 
     QQuickStyle::setStyle("Material");
 

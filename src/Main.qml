@@ -11,7 +11,9 @@ ApplicationWindow {
     minimumHeight: 440
     visible: true
     title: backend.title.length > 0 ? backend.title + " — hum" : "hum"
-    color: "#0e0e10"
+    // Follows Omarchy's Window Opacity: solid, slightly see-through, or glassy
+    // (which Hyprland blurs behind). Only the background fades, never the text.
+    color: Qt.rgba(0.055, 0.055, 0.063, theme.windowAlpha)
 
     Material.theme: Material.Dark
     Material.accent: theme.accent

@@ -10,6 +10,8 @@ class Theme : public QObject {
     Q_PROPERTY(QString accent READ accent NOTIFY changed)
     Q_PROPERTY(QString accentForeground READ accentForeground NOTIFY changed)
     Q_PROPERTY(int radius READ radius NOTIFY changed)
+    Q_PROPERTY(QString windowMode READ windowMode NOTIFY changed)
+    Q_PROPERTY(qreal windowAlpha READ windowAlpha NOTIFY changed)
 
 public:
     explicit Theme(const QString &currentDirectory = {}, QObject *parent = nullptr, const QString &hyprctl = {});
@@ -18,8 +20,13 @@ public:
     QString accent() const { return m_accent; }
     QString accentForeground() const;
     int radius() const { return m_radius; }
+    // Omarchy's Appearance > Windows > Window Opacity: opaque, transparent, or glassy.
+    QString windowMode() const { return m_windowMode; }
+    // How solid the window background should be for that mode.
+    qreal windowAlpha() const;
 
     static QString readAccent(const QString &path);
+    static QString readWindowMode(const QString &togglesDirectory);
 
 signals:
     void changed();
@@ -29,6 +36,8 @@ private:
     void refreshRounding();
 
     QString m_directory;
+    QString m_togglesDirectory;
+    QString m_windowMode = "transparent";
     QString m_accent = "#FFD60A";
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;

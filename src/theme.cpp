@@ -13,7 +13,9 @@
 
 Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl)
     : QObject(parent),
-      m_directory(directory.isEmpty() ? QDir::homePath() + "/.local/state/omarchy/current" : directory) {
+      m_directory(directory.isEmpty() ? QDir::homePath() + "/.local/state/omarchy/current" : directory),
+      m_togglesDirectory(directory.isEmpty() ? QDir::homePath() + "/.local/state/omarchy/toggles/hypr"
+                                             : directory + "/toggles/hypr") {
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(80);
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, [this] { m_debounce.start(); });
@@ -73,6 +75,22 @@ QString Theme::readAccent(const QString &path) {
     return "#FFD60A";
 }
 
+// Omarchy records the choice as a file under toggles/hypr: window-opaque.lua
+// or window-glassy.lua, and neither means transparent, the default.
+QString Theme::readWindowMode(const QString &togglesDirectory) {
+    if (QFileInfo::exists(togglesDirectory + "/window-opaque.lua"))
+        return "opaque";
+    if (QFileInfo::exists(togglesDirectory + "/window-glassy.lua"))
+        return "glassy";
+    return "transparent";
+}
+
+// Transparent matches the 0.985 Omarchy gives its own see-through windows, and
+// glassy the 0.65 it gives terminals, which the compositor then blurs behind.
+qreal Theme::windowAlpha() const {
+    return m_windowMode == "opaque" ? 1.0 : m_windowMode == "glassy" ? 0.65 : 0.985;
+}
+
 // Black or white, whichever reads on the accent (WCAG relative luminance).
 QString Theme::accentForeground() const {
     const QColor c(m_accent);
@@ -93,16 +111,24 @@ void Theme::reload() {
     QString ancestor = m_directory;
     while (!QFileInfo::exists(ancestor) && ancestor != "/")
         ancestor = QFileInfo(ancestor).absolutePath();
+    // The window-opacity toggles live elsewhere in the state directory, and
+    // their folder may not exist until the user first picks a mode.
+    QString togglesAncestor = m_togglesDirectory;
+    while (!QFileInfo::exists(togglesAncestor) && togglesAncestor != "/")
+        togglesAncestor = QFileInfo(togglesAncestor).absolutePath();
     QStringList candidates{ancestor, QFileInfo(ancestor).absolutePath(), m_directory,
-                           m_directory + "/theme", m_directory + "/theme/colors.toml"};
+                           m_directory + "/theme", m_directory + "/theme/colors.toml",
+                           togglesAncestor, m_togglesDirectory};
     candidates.removeDuplicates();
     for (const auto &path : candidates)
         if (QFileInfo::exists(path))
             m_watcher.addPath(path);
 
     const auto accent = readAccent(m_directory + "/theme/colors.toml");
-    if (accent != m_accent) {
+    const auto mode = readWindowMode(m_togglesDirectory);
+    if (accent != m_accent || mode != m_windowMode) {
         m_accent = accent;
+        m_windowMode = mode;
         emit changed();
     }
 }
