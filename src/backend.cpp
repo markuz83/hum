@@ -30,6 +30,7 @@ namespace {
 // 75 ms never left a gap in six and overlapped the tracks by 0 to about 75 ms.
 // A gap can click; a short overlap at the end of a track is not noticeable.
 constexpr qint64 GaplessLeadMs = 75;
+constexpr int DefaultVisualizerRate = 60;
 // Bumped whenever the cache gains a field, so old entries are read again.
 constexpr int CacheVersion = 3;
 const QStringList Extensions{"mp3", "ogg", "oga", "opus", "flac", "wav", "m4a", "aac", "wma", "mka", "weba"};
@@ -83,14 +84,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
 
     m_frames.setTimerType(Qt::PreciseTimer);
     configureFrames();
-    connect(&m_frames, &QTimer::timeout, this, [this] {
-        // Following the display, the window's frame clock drives the bars and
-        // this timer only acts when no frame has come for a while, which is
-        // the window being hidden.
-        if (m_visualizerRate == 0 && m_lastTick.isValid() && m_lastTick.elapsed() < 50)
-            return;
-        tick();
-    });
+    connect(&m_frames, &QTimer::timeout, this, &Backend::tick);
     connect(&m_watcher, &QFutureWatcher<QStringList>::finished, this, [this] { finishScan(m_watcher.result()); });
     connect(&m_tagWatcher, &QFutureWatcher<TagResult>::finished, this, [this] { finishReading(m_tagWatcher.result()); });
     m_cacheFile = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/tags.json";
@@ -1615,22 +1609,24 @@ void Backend::setVisualizerStyle(int style) {
 }
 
 // Rates people can step through with one key; the state file takes any value.
-static const QList<int> RatePresets{0, 30, 60, 120, 144, 240};
+static const QList<int> RatePresets{30, 60, 120, 144, 240};
 
 void Backend::cycleVisualizerRate() {
-    // The next preset above the current rate, wrapping back to the display.
-    // The display (0) sorts first, so a custom rate lands on the next one up.
+    // The next preset above the current rate, wrapping around to the lowest.
+    // A custom rate lands on the next one up.
     for (int preset : RatePresets) {
-        if (preset != 0 && preset > m_visualizerRate && m_visualizerRate != 0) {
+        if (preset > m_visualizerRate) {
             setVisualizerRate(preset);
             return;
         }
     }
-    setVisualizerRate(m_visualizerRate == 0 ? RatePresets.at(1) : 0);
+    setVisualizerRate(RatePresets.first());
 }
 
 void Backend::setVisualizerRate(int hz) {
-    hz = hz <= 0 ? 0 : std::clamp(hz, 10, 360);
+    // Zero or less means the default, so an old state file that asked to
+    // follow the display gets 60.
+    hz = hz <= 0 ? DefaultVisualizerRate : std::clamp(hz, 10, 360);
     if (hz == m_visualizerRate)
         return;
     m_visualizerRate = hz;
@@ -1639,26 +1635,12 @@ void Backend::setVisualizerRate(int hz) {
     scheduleSave();
 }
 
-void Backend::setRefreshRate(double hz) {
-    if (hz < 10 || qFuzzyCompare(hz, m_refreshRate))
-        return;
-    m_refreshRate = hz;
-    configureFrames();
-    emit modeChanged();
-}
-
-// A fixed rate is a precise timer. Following the display, the window drives
-// frame() from its own frame clock and this timer is only a slow backstop, so
-// audio keeps draining while the window is hidden and draws nothing.
+// The bars update on a precise timer at the chosen rate, and the cava-style
+// smoothing is told the rate so the bars fall at the same speed at any of them.
 void Backend::configureFrames() {
     const bool running = m_frames.isActive();
-    if (m_visualizerRate > 0) {
-        m_frames.setInterval(std::max(1, qRound(1000.0 / m_visualizerRate)));
-        m_analyzer.setFramerate(m_visualizerRate);
-    } else {
-        m_frames.setInterval(50);
-        m_analyzer.setFramerate(qRound(m_refreshRate));
-    }
+    m_frames.setInterval(std::max(1, qRound(1000.0 / m_visualizerRate)));
+    m_analyzer.setFramerate(m_visualizerRate);
     if (running)
         m_frames.start();
 }
@@ -1666,23 +1648,10 @@ void Backend::configureFrames() {
 void Backend::startFrames() {
     if (!m_frames.isActive())
         m_frames.start();
-    if (!m_animating) {
-        m_animating = true;
-        emit animatingChanged();
-    }
 }
 
 void Backend::stopFrames() {
     m_frames.stop();
-    if (m_animating) {
-        m_animating = false;
-        emit animatingChanged();
-    }
-}
-
-void Backend::frame() {
-    if (m_visualizerRate == 0)
-        tick();
 }
 
 void Backend::stop() {
@@ -1702,7 +1671,6 @@ QString Backend::playbackState() const {
 // Runs once per visualizer frame: feed the analyzer the audio that has just
 // reached the speakers, and publish the bar heights.
 void Backend::tick() {
-    m_lastTick.restart();
     QVector<float> levels;
     if (playing()) {
         // The player reports its position in coarse steps, which would feed the

@@ -902,17 +902,17 @@ private slots:
             Backend backend;
             backend.setStateFile(state);
             backend.setVolume(0);
-            QCOMPARE(backend.visualizerRate(), 0);  // follows the display by default
+            QCOMPARE(backend.visualizerRate(), 60);  // the default
             backend.cycleVisualizerRate();
-            QCOMPARE(backend.visualizerRate(), 30);
-            backend.cycleVisualizerRate();
-            QCOMPARE(backend.visualizerRate(), 60);
+            QCOMPARE(backend.visualizerRate(), 120);
             backend.setVisualizerRate(100);  // a custom rate steps up to the next preset
             backend.cycleVisualizerRate();
             QCOMPARE(backend.visualizerRate(), 120);
             backend.setVisualizerRate(240);
             backend.cycleVisualizerRate();
-            QCOMPARE(backend.visualizerRate(), 0);  // and wraps back to the display
+            QCOMPARE(backend.visualizerRate(), 30);  // and wraps round to the lowest
+            backend.setVisualizerRate(0);  // an old "follow the display" setting means the default
+            QCOMPARE(backend.visualizerRate(), 60);
             backend.setVisualizerRate(5000);
             QCOMPARE(backend.visualizerRate(), 360);
             backend.setVisualizerRate(3);

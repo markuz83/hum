@@ -43,7 +43,7 @@ Drag the divider, or use `[` and `]`, to resize the two panes; double-click it o
 | M | Mute |
 | S / R | Shuffle / repeat (with shuffle on, P goes back through what really played) |
 | V | Change visualizer (bars, mirrored, line) |
-| F | Visualizer refresh rate (display, 30, 60, 120, 144, 240 Hz) |
+| F | Visualizer refresh rate (30, 60, 120, 144, 240 Hz) |
 | Y | Show the lyrics in place of the visualizer |
 | Shift+S | Sort the title list: album order, title, year, recently added, length |
 | G | Volume leveling: off, per track, per album (ReplayGain) |
@@ -69,9 +69,8 @@ Right-click a row for Play, Play next and Add to queue. The queue also takes dra
 ### The visualizer
 
 The spectrum is computed from the audio actually playing (a 2048-point FFT into 48 log-spaced bands)
-and smoothed the way [cava](https://github.com/karlstav/cava) does it. By default it updates once per
-frame the display draws; press `F` to lock it to a fixed rate instead. Any rate from 10 to 360 Hz can be
-set with `"visualizerRate"` in `~/.config/hum/state.json` (0 follows the display).
+and smoothed the way [cava](https://github.com/karlstav/cava) does it. It updates 60 times a second;
+press `F` to step through 30, 60, 120, 144 and 240 Hz. Any rate from 10 to 360 Hz can be set with `"visualizerRate"` in `~/.config/hum/state.json`.
 
 ### Gapless playback, crossfade and leveling
 

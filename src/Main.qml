@@ -44,19 +44,10 @@ ApplicationWindow {
         noticeVisible = true
         noticeTimer.restart()
     }
-    readonly property string rateLabel: backend.visualizerRate === 0
-        ? qsTr("matches display (%1 Hz)").arg(Math.round(backend.refreshRate))
-        : qsTr("%1 Hz").arg(backend.visualizerRate)
     function sleepLabel(minutes) {
         return minutes === 0 ? qsTr("off") : minutes < 0 ? qsTr("end of track") : qsTr("%1 min").arg(minutes)
     }
-    Binding { target: backend; property: "refreshRate"; value: win.screen ? win.screen.refreshRate : 60 }
     Timer { id: noticeTimer; interval: 2000; onTriggered: win.noticeVisible = false }
-    // One tick per frame the window actually draws, while the bars move.
-    FrameAnimation {
-        running: backend.animating && backend.visualizerRate === 0
-        onTriggered: backend.frame()
-    }
     property bool errorShown: backend.error.length > 0
     Connections {
         target: backend
@@ -171,7 +162,7 @@ ApplicationWindow {
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleRepeat() }
     Shortcut {
         sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: { backend.cycleVisualizerRate(); win.notify(qsTr("Visualizer refresh: %1").arg(win.rateLabel)) }
+        onActivated: { backend.cycleVisualizerRate(); win.notify(qsTr("Visualizer refresh: %1").arg(qsTr("%1 Hz").arg(backend.visualizerRate))) }
     }
     Shortcut {
         sequence: "G"; context: Qt.ApplicationShortcut; enabled: !win.typing

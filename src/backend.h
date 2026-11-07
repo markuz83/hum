@@ -61,12 +61,8 @@ class Backend : public QObject {
     Q_PROPERTY(int sleepRemaining READ sleepRemaining NOTIFY sleepChanged)
     Q_PROPERTY(bool shuffle READ shuffle WRITE setShuffle NOTIFY modeChanged)
     Q_PROPERTY(int repeat READ repeat WRITE setRepeat NOTIFY modeChanged)
-    // Visualizer updates per second; 0 follows the display's refresh rate.
+    // Visualizer updates per second.
     Q_PROPERTY(int visualizerRate READ visualizerRate WRITE setVisualizerRate NOTIFY modeChanged)
-    // The display's refresh rate in Hz, reported by the window.
-    Q_PROPERTY(double refreshRate READ refreshRate WRITE setRefreshRate NOTIFY modeChanged)
-    // True while the bars are moving, so a frame-synced driver knows to run.
-    Q_PROPERTY(bool animating READ animating NOTIFY animatingChanged)
     // How the title list is ordered: 0 album order, 1 title, 2 year, 3 recently added, 4 length.
     Q_PROPERTY(int sortMode READ sortMode WRITE setSortMode NOTIFY modeChanged)
     // Lyrics of the playing track: lines of text, and when each one starts if they are synced.
@@ -128,8 +124,6 @@ public:
     // The line being sung at this moment, or -1 before the first one.
     Q_INVOKABLE int lyricIndexAt(qint64 ms) const;
     int visualizerRate() const { return m_visualizerRate; }
-    double refreshRate() const { return m_refreshRate; }
-    bool animating() const { return m_animating; }
     int visualizerStyle() const { return m_visualizerStyle; }
     bool canGoNext() const { return !m_queue.isEmpty() || !m_visible.isEmpty(); }
     QVariantList queue() const;
@@ -226,7 +220,6 @@ public:
     Q_INVOKABLE void cycleSort();
     void setShowLyrics(bool show);
     void setVisualizerRate(int hz);
-    void setRefreshRate(double hz);
     Q_INVOKABLE void cycleVisualizerRate();
     // The gain ReplayGain gives a file under the current mode, as a factor.
     double leveling(const QString &path) const;
@@ -237,8 +230,6 @@ public:
     // Off, 15, 30, 45, 60 and 90 minutes, then the end of the current track.
     Q_INVOKABLE void cycleSleep();
     void setSleep(int setting);
-    // Called once per display frame while the rate follows the display.
-    Q_INVOKABLE void frame();
     void setVolume(qreal volume);
     void setFilter(const QString &filter);
 
@@ -246,7 +237,6 @@ signals:
     void browserChanged();
     void coverChanged();
     void queueChanged();
-    void animatingChanged();
     void sleepChanged();
     void lyricsChanged();
     void layoutChanged();
@@ -326,10 +316,7 @@ private:
     bool m_reading = false;
     bool m_scanning = false, m_shuffle = false;
     int m_visualizerStyle = 0;
-    int m_visualizerRate = 0;
-    double m_refreshRate = 60;
-    bool m_animating = false;
-    QElapsedTimer m_lastTick;
+    int m_visualizerRate = 60;
     int m_repeat = RepeatOff;
     qreal m_volume = 0.8;
 
