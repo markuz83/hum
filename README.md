@@ -9,7 +9,7 @@ your desktop: theme colors, font, window opacity, corner rounding and language a
 ## Install
 
 ```sh
-git clone <this repository> hum && cd hum
+git clone https://github.com/markuz83/hum && cd hum
 bin/install        # builds the package and installs it with pacman
 ```
 
