@@ -23,7 +23,8 @@ Hum then appears in the launcher (Super + Space). `qt6-imageformats` is optional
 The library browser has three columns, Artist, Album and Title, narrowed from left to right.
 Tags come from the files, and anything untagged falls back to the `Artist/Album/Title` folder layout.
 Cover art is the embedded picture, or the folder's `cover.jpg`, `folder.jpg`, `front.png` and the like
-(a folder with a single image uses that one).
+(a folder with a single image uses that one). The title list shows each track's length, and hovering a
+name that is cut off shows it in full.
 
 Tracks play back to back without a gap, or with a crossfade (`C`). Hum can level loudness from ReplayGain
 tags (`G`), stop after a while with a sleep timer (`T`), show lyrics (`Y`) and sort the title list (`Shift+S`).
@@ -103,7 +104,8 @@ hum seek N | +N | -N
 
 Each command exits 0, or 1 with the reason on stderr (for example when Hum isn't running).
 
-There is also an Omarchy bar widget that draws a live mini spectrum. Install and enable it with:
+There is also an Omarchy bar widget that draws a live mini spectrum, with a progress line you can click to
+seek and an optional scrolling track name. Install and enable it with:
 
 ```sh
 hum plugin install --enable
@@ -130,7 +132,7 @@ node --test omarchy-plugin/tests/protocol.test.js
 
 Qt 6 (Quick, Material style, Multimedia with the FFmpeg backend), qmake and a C++17 compiler.
 `ffprobe` reads tags and lengths. The code is in `src/`: `backend` holds the library, playback, queue and
-state; `analyzer` is the spectrum; `theme` follows Omarchy; `mpris` and `barlink` are the integrations.
+state; `analyzer` is the spectrum; `theme` follows Omarchy; `mpris`, `barlink` and `cli` are the integrations.
 
 ## License
 
