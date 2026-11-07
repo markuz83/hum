@@ -29,6 +29,7 @@ Item {
         spacing: 4
 
         Label {
+            textFormat: Text.PlainText
             text: column.heading
             font.bold: true
             font.pixelSize: 12
@@ -63,6 +64,7 @@ Item {
                            : rowHover.hovered ? theme.raised : "transparent"
                 }
                 Label {
+                    textFormat: Text.PlainText
                     id: rowTime
                     anchors.right: parent.right
                     anchors.rightMargin: 10
@@ -72,6 +74,7 @@ Item {
                     font.pixelSize: 13
                 }
                 Label {
+                    textFormat: Text.PlainText
                     id: rowText
                     anchors.left: parent.left
                     anchors.right: rowTime.text === "" ? parent.right : rowTime.left
@@ -86,10 +89,21 @@ Item {
                     font.bold: playingRow
                 }
                 HoverHandler { id: rowHover }
-                // A name that doesn't fit is shown whole after a short hover.
-                ToolTip.visible: rowHover.hovered && rowText.truncated
-                ToolTip.delay: 600
-                ToolTip.text: rowText.text
+                // A name that doesn't fit is shown whole after a short hover. It
+                // comes from a file's tags, so it is drawn as plain text, never
+                // as markup.
+                ToolTip {
+                    id: fullName
+                    visible: rowHover.hovered && rowText.truncated
+                    delay: 600
+                    text: rowText.text
+                    contentItem: Text {
+                        textFormat: Text.PlainText
+                        text: fullName.text
+                        font: fullName.font
+                        color: fullName.Material.foreground
+                    }
+                }
                 TapHandler {
                     onTapped: {
                         column.clicked()

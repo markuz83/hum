@@ -26,6 +26,16 @@ QString mmss(qint64 ms) {
 }
 }  // namespace
 
+// Titles come from a file's tags. Printed raw, a tag holding a terminal escape
+// sequence could rewrite the screen, so control characters become spaces.
+QString printable(const QString &text) {
+    QString out = text;
+    for (QChar &c : out)
+        if (c.unicode() < 0x20 || (c.unicode() >= 0x7f && c.unicode() < 0xa0))
+            c = ' ';
+    return out;
+}
+
 bool isCommand(const QString &word) {
     return Commands.contains(word);
 }
@@ -104,9 +114,9 @@ int run(const QStringList &args, QTextStream &out, QTextStream &err, const QStri
         } else if (now.value("title").toString().isEmpty()) {
             out << now.value("state").toString() << "\n";
         } else {
-            out << now.value("state").toString() << ": " << now.value("title").toString();
+            out << now.value("state").toString() << ": " << printable(now.value("title").toString());
             if (!now.value("artist").toString().isEmpty())
-                out << " — " << now.value("artist").toString();
+                out << " — " << printable(now.value("artist").toString());
             out << " (" << mmss(qint64(now.value("position").toDouble())) << " / " << mmss(qint64(now.value("duration").toDouble()))
                 << ")\n";
         }

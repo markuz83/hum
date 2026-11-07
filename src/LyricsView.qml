@@ -31,6 +31,7 @@ Item {
             width: ListView.view.width
             height: Math.max(28, text.implicitHeight + 8)
             Label {
+                textFormat: Text.PlainText
                 id: text
                 anchors.centerIn: parent
                 width: parent.width - 24
@@ -51,6 +52,7 @@ Item {
     }
 
     Label {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         visible: list.count === 0
         color: theme.dim

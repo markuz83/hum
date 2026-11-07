@@ -33,6 +33,8 @@ constexpr qint64 GaplessLeadMs = 75;
 constexpr int DefaultVisualizerRate = 60;
 // Bumped whenever the cache gains a field, so old entries are read again.
 constexpr int CacheVersion = 3;
+// The most text read from a lyrics file, or from one ffprobe answer.
+constexpr qint64 MaxTextBytes = 8 * 1024 * 1024;
 const QStringList Extensions{"mp3", "ogg", "oga", "opus", "flac", "wav", "m4a", "aac", "wma", "mka", "weba"};
 }
 
@@ -579,6 +581,10 @@ Backend::TagResult Backend::readTags(const QStringList &paths, const QString &ca
                 process.kill();
                 return Tags();
             }
+            // Tags are read from files that may not be ours; ignore a probe
+            // that answers with an absurd amount of text.
+            if (process.bytesAvailable() > MaxTextBytes)
+                return Tags();
             return parseProbe(process.readAllStandardOutput());
         });
         for (int i = 0; i < todo.size(); ++i) {
@@ -1491,7 +1497,8 @@ Backend::Lyrics Backend::readLyrics(const QString &path, const QString &ffprobe)
         if (file.suffix().compare("lrc", Qt::CaseInsensitive) == 0) {
             QFile lrc(file.filePath());
             if (lrc.open(QIODevice::ReadOnly)) {
-                const Lyrics lyrics = parseLyrics(QString::fromUtf8(lrc.readAll()));
+                // A lyrics file is a few kilobytes; cap what is read so a huge file can't fill memory.
+                const Lyrics lyrics = parseLyrics(QString::fromUtf8(lrc.read(MaxTextBytes)));
                 if (!lyrics.lines.isEmpty())
                     return lyrics;
             }
@@ -1506,6 +1513,8 @@ Backend::Lyrics Backend::readLyrics(const QString &path, const QString &ffprobe)
         return {};
     }
     // Tag names vary: LYRICS, UNSYNCEDLYRICS, USLT, lyrics-eng, SYNCEDLYRICS.
+    if (process.bytesAvailable() > MaxTextBytes)
+        return {};
     const QJsonObject root = QJsonDocument::fromJson(process.readAllStandardOutput()).object();
     QList<QJsonObject> sources{root.value("format").toObject().value("tags").toObject()};
     for (const QJsonValue &stream : root.value("streams").toArray())

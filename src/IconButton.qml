@@ -27,6 +27,7 @@ Item {
              : hover.hovered ? theme.raised : "transparent"
     }
     Label {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: button.glyph
         font.pixelSize: button.size * (button.emphasized ? 0.5 : 0.56)

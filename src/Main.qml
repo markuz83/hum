@@ -253,6 +253,7 @@ ApplicationWindow {
                         color: theme.highlight
                         radius: theme.radius
                         Label {
+                            textFormat: Text.PlainText
                             anchors.centerIn: parent
                             visible: !backend.hasCover
                             text: "♪"
@@ -297,6 +298,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         spacing: 12
                         Label {
+                            textFormat: Text.PlainText
                             Layout.fillWidth: true
                             text: backend.title.length > 0 ? backend.title
                                 : backend.scanning ? qsTr("Scanning %1…").arg(backend.libraryPath)
@@ -308,6 +310,7 @@ ApplicationWindow {
                         // Pausing (or a track waiting where it was left) shows here,
                         // since the bars going flat is easy to miss.
                         Label {
+                            textFormat: Text.PlainText
                             visible: backend.title.length > 0 && !backend.playing
                             text: qsTr("Paused")
                             color: win.dim
@@ -317,6 +320,7 @@ ApplicationWindow {
                         }
                     }
                     Label {
+                        textFormat: Text.PlainText
                         Layout.fillWidth: true
                         visible: text.length > 0
                         text: backend.artist + (backend.artist.length > 0 && backend.album.length > 0 ? " · " : "") + backend.album
@@ -328,6 +332,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         visible: win.errorShown && backend.error.length > 0 && !win.emptyLibrary
                         Label {
+                            textFormat: Text.PlainText
                             Layout.fillWidth: true
                             text: backend.error
                             color: theme.danger
@@ -358,6 +363,7 @@ ApplicationWindow {
                             visible: backend.showLyrics
                         }
                         Text {
+                            textFormat: Text.PlainText
                             anchors.right: parent.right
                             anchors.top: parent.top
                             visible: win.noticeVisible
@@ -405,6 +411,7 @@ ApplicationWindow {
                         Item { Layout.fillWidth: true }
                         // Time left on the sleep timer, or that it will stop after this track.
                         Label {
+                            textFormat: Text.PlainText
                             visible: backend.sleepSetting !== 0
                             color: theme.accent
                             text: "☾ " + (backend.sleepSetting < 0 ? qsTr("end of track") : win.clock(backend.sleepRemaining * 1000))
@@ -493,7 +500,7 @@ ApplicationWindow {
                 }
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: theme.highlight }
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.highlight }
 
             // The library: Artist | Album | Title.
             Item {
@@ -528,6 +535,7 @@ ApplicationWindow {
                     TapHandler { onTapped: filter.forceActiveFocus() }
 
                     Label {
+                        textFormat: Text.PlainText
                         anchors.left: parent.left
                         anchors.leftMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
@@ -643,6 +651,7 @@ ApplicationWindow {
                             running: visible
                         }
                         Label {
+                            textFormat: Text.PlainText
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
@@ -651,6 +660,7 @@ ApplicationWindow {
                                 : backend.error.length > 0 ? backend.error : qsTr("No music found")
                         }
                         Label {
+                            textFormat: Text.PlainText
                             Layout.fillWidth: true
                             visible: win.emptyLibrary
                             horizontalAlignment: Text.AlignHCenter
@@ -666,6 +676,7 @@ ApplicationWindow {
                             radius: Math.min(8, theme.radius)
                             color: chooseTap.pressed ? Qt.darker(theme.accent, 1.2) : theme.accent
                             Label {
+                                textFormat: Text.PlainText
                                 id: chooseLabel
                                 anchors.centerIn: parent
                                 text: qsTr("Choose music folder")
@@ -682,12 +693,14 @@ ApplicationWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     Label {
+                        textFormat: Text.PlainText
                         text: backend.reading ? qsTr("Reading tags…") : qsTr("%n tracks", "", backend.titles.length)
                         color: win.dim
                         font.pixelSize: 12
                     }
                     Item { Layout.fillWidth: true }
                     Label {
+                        textFormat: Text.PlainText
                         text: qsTr("Press %1 for shortcuts").arg("?")
                         color: win.dim
                         font.pixelSize: 12

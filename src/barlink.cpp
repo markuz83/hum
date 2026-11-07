@@ -70,6 +70,14 @@ QByteArray BarLink::trackLine() const {
 
 void BarLink::accept() {
     while (QLocalSocket *client = m_server.nextPendingConnection()) {
+        // A plugin is one small local client: a handful of connections is
+        // plenty, and a line longer than any command is not a command.
+        if (m_clients.size() >= 16) {
+            client->abort();
+            client->deleteLater();
+            continue;
+        }
+        client->setReadBufferSize(4096);
         m_clients << client;
         connect(client, &QLocalSocket::disconnected, this, [this, client] {
             m_clients.removeOne(client);

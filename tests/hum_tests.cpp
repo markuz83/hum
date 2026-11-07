@@ -246,6 +246,134 @@ private slots:
         QCOMPARE(backend.lyricIndexAt(9000), 1);
     }
 
+    void missingFfprobeIsReportedNotHidden()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/a.mp3");
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", "/nonexistent");
+        Backend backend;
+        backend.setCacheFile(dir.path() + "/.cache/tags.json");
+        backend.open(dir.path());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.scanning() && !backend.reading(), 15000);
+        qputenv("PATH", path);
+        QVERIFY(backend.error().contains("ffprobe"));
+        QCOMPARE(backend.libraryCount(), 1);  // the library still lists, from the folder names
+    }
+
+    void aSymlinkLoopDoesNotHangTheScan()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/a.mp3");
+        QDir().mkpath(dir.path() + "/sub");
+        touch(dir.path() + "/sub/b.mp3");
+        // sub/up points back at the library, and self points at its own folder.
+        QVERIFY(QFile::link(dir.path(), dir.path() + "/sub/up"));
+        QVERIFY(QFile::link(dir.path() + "/sub", dir.path() + "/sub/self"));
+        Backend backend;
+        backend.setCacheFile(dir.path() + "/.cache/tags.json");
+        backend.open(dir.path());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.scanning() && !backend.reading(), 20000);
+        QVERIFY(backend.libraryCount() >= 2);
+        QVERIFY(backend.libraryCount() < 50);  // not the same files over and over
+    }
+
+    void hugeOrHostileFilesAreHandled()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/song.mp3");
+        // A lyrics file far bigger than any real one: read only so much.
+        QFile lrc(dir.path() + "/song.lrc");
+        QVERIFY(lrc.open(QIODevice::WriteOnly));
+        const QByteArray line = "[00:01.00]la la la la la la la la\n";
+        for (int i = 0; i < 700000; ++i)  // about 24 MB
+            lrc.write(line);
+        lrc.close();
+        const auto lyrics = Backend::readLyrics(dir.path() + "/song.mp3", {});
+        QVERIFY(lyrics.lines.size() > 0);
+        QVERIFY(lyrics.lines.size() < 300000);  // the cap cut it short
+
+        // Odd names, broken images and text that is not UTF-8 are only data.
+        QDir().mkpath(dir.path() + "/Band \"quoted\"/-dash album");
+        touch(dir.path() + "/Band \"quoted\"/-dash album/-- leading dashes; $(touch pwned).mp3");
+        touch(dir.path() + "/line\nbreak.mp3");
+        write(dir.path() + "/cover.jpg", QByteArray("\xff\xd8\xff\xe0 not really a jpeg") + QByteArray(5000, 'x'));
+        write(dir.path() + "/folder.png", QByteArray(100000, '\0'));
+        write(dir.path() + "/bad.lrc", QByteArray("\xff\xfe\x00\x80 [99:99.999]x\n[-1:00]y\n[00:00.00"));
+        Backend backend;
+        backend.setCacheFile(dir.path() + "/.cache/tags.json");
+        backend.open(dir.path());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.scanning() && !backend.reading(), 20000);
+        QVERIFY(backend.libraryCount() >= 3);
+        QVERIFY(!QFileInfo::exists(dir.path() + "/-dash album/pwned"));  // names are never run as commands
+        backend.play(0);
+        QTest::qWait(300);
+        const auto odd = Backend::parseLyrics(QString::fromUtf8("\xff\xfe\x00\x80 [99:99.999]x\n[-1:00]y\n[00:00.00"));
+        QVERIFY(odd.lines.size() <= 3);
+    }
+
+    void corruptStateAndCacheFilesAreIgnored()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/a.mp3");
+        const QString state = dir.path() + "/state.json";
+        QDir().mkpath(dir.path() + "/.cache");
+        for (const QByteArray &bad : {QByteArray("\x00\x01\xff not json"), QByteArray("[1,2,3]"), QByteArray("null"),
+                                      QByteArray("{\"volume\": \"loud\", \"queue\": [1, {}, null, \"/etc/passwd\"], \"track\": [], "
+                                                 "\"position\": \"x\", \"visualizerRate\": 1e99, \"crossfade\": -5, \"sort\": 99, "
+                                                 "\"replayGain\": \"a\", \"queueRatio\": 5, \"library\": 7}"),
+                                      QByteArray(300000, '{')}) {
+            write(state, bad);
+            write(dir.path() + "/.cache/tags.json", bad);
+            Backend backend;
+            backend.setStateFile(state);
+            backend.setCacheFile(dir.path() + "/.cache/tags.json");
+            backend.setVolume(0);
+            backend.open(dir.path());
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.scanning() && !backend.reading(), 15000);
+            QVERIFY(backend.volume() >= 0 && backend.volume() <= 1);
+            QVERIFY(backend.crossfade() >= 0 && backend.crossfade() <= 12);
+            QVERIFY(backend.sortMode() >= 0 && backend.sortMode() <= 4);
+            QVERIFY(backend.visualizerRate() >= 10 && backend.visualizerRate() <= 360);
+            QVERIFY(backend.queueRatio() >= 0.15 && backend.queueRatio() <= 0.6);
+            QCOMPARE(backend.queue().size(), 0);  // "/etc/passwd" is not in the library, so it can't be queued
+        }
+    }
+
+    void theBarSocketSurvivesHostileClients()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/a.mp3");
+        Backend backend;
+        backend.setVolume(0);
+        ready(backend, dir, {});
+        BarLink link(&backend, dir.path() + "/bar.sock");
+        QVERIFY(link.listening());
+        // Far more clients than any real bar opens, each sending junk.
+        QList<QLocalSocket *> clients;
+        for (int i = 0; i < 40; ++i) {
+            auto *client = new QLocalSocket(this);
+            client->connectToServer(link.path());
+            clients << client;
+        }
+        QTest::qWait(300);
+        for (auto *client : clients) {
+            client->write(QByteArray(300000, 'A'));       // no newline, ever
+            client->write("\nvolume -99999999999999999\nseek 99999999999999999999\nvolume \xff\n\x00\n");
+        }
+        QTest::qWait(500);
+        QVERIFY(backend.volume() >= 0 && backend.volume() <= 1);
+        // Still answering a well-behaved client afterwards.
+        QLocalSocket good;
+        QStringList lines;
+        QObject::connect(&good, &QLocalSocket::readyRead, [&] { while (good.canReadLine()) lines << QString::fromUtf8(good.readLine()).trimmed(); });
+        for (auto *client : clients) client->abort();
+        QTest::qWait(300);
+        good.connectToServer(link.path());
+        QTRY_VERIFY_WITH_TIMEOUT(lines.size() >= 2, 5000);
+        qDeleteAll(clients);
+    }
+
     void libraryFollowsItsFolderAndKeepsTheSelection()
     {
         QTemporaryDir dir;
@@ -454,6 +582,16 @@ private slots:
         QTRY_VERIFY(!backend.playing());
         QCOMPARE(run({"bogus"}, &out, &err), 1);
         QVERIFY(err.contains("Unknown command"));
+    }
+
+    void terminalTextHasNoControlCharacters()
+    {
+        // A tag holding an escape sequence must not reach the terminal as one.
+        const QString printed = Cli::printable(QString("Song\x1b[2J\x1b]0;owned\x07 end\r\n") + QChar(0x9b) + "x");
+        for (const QChar c : printed)
+            QVERIFY(c.unicode() >= 0x20 && !(c.unicode() >= 0x7f && c.unicode() < 0xa0));
+        QVERIFY(printed.startsWith("Song"));
+        QCOMPARE(Cli::printable("Plain — ünïcode"), QString("Plain — ünïcode"));
     }
 
     void commandLineSaysWhenHumIsNotRunning()

@@ -134,6 +134,13 @@ Qt 6 (Quick, Material style, Multimedia with the FFmpeg backend), qmake and a C+
 `ffprobe` reads tags and lengths. The code is in `src/`: `backend` holds the library, playback, queue and
 state; `analyzer` is the spectrum; `theme` follows Omarchy; `mpris`, `barlink` and `cli` are the integrations.
 
+## Credits
+
+- The visualizer's smoothing follows [cava](https://github.com/karlstav/cava)'s `cavacore` (MIT,
+  Karl Stavestrand): gravity, an integral filter and automatic sensitivity.
+- The folder picker through xdg-desktop-portal is adapted from [Omacut](https://github.com/omacom/omacut) (MIT).
+- Built on Qt 6 and FFmpeg.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

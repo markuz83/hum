@@ -1,5 +1,7 @@
 #include "mpris.h"
 
+#include <QFileDevice>
+
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -161,6 +163,12 @@ QString Mpris::metadataSignature() const {
                        QString::number(m_backend->duration()), QString::number(m_backend->coverId())}.join('\n');
 }
 
+Mpris::~Mpris() {
+    // The cover file is only for the session; don't leave it in the cache.
+    if (!m_artFile.isEmpty())
+        QFile::remove(m_artFile);
+}
+
 // Programs that want the art need a file or URL, so the current cover is
 // written once per cover under the cache folder.
 void Mpris::writeArt() {
@@ -169,6 +177,8 @@ void Mpris::writeArt() {
     m_artFile.clear();
     if (m_backend->hasCover()) {
         QDir().mkpath(m_artDirectory);
+        // Covers come from the user's own library; keep them to the user.
+        QFile::setPermissions(m_artDirectory, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
         const QString file = m_artDirectory + "/cover-" + QString::number(m_backend->coverId()) + ".png";
         if (m_backend->cover().save(file))
             m_artFile = file;

@@ -66,6 +66,7 @@ Rectangle {
                 spacing: 14
 
                 Label {
+                    textFormat: Text.PlainText
                     id: title
                     text: qsTr("Keyboard shortcuts")
                     font.pixelSize: 18
@@ -86,11 +87,13 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 16
                             Label {
+                                textFormat: Text.PlainText
                                 text: modelData[0]
                                 color: theme.accent
                                 Layout.preferredWidth: 110
                             }
                             Label {
+                                textFormat: Text.PlainText
                                 text: modelData[1]
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap

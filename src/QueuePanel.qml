@@ -25,6 +25,7 @@ Item {
             Layout.rightMargin: 4
             spacing: 8
             Label {
+                textFormat: Text.PlainText
                 text: qsTr("Queue")
                 font.bold: true
                 font.pixelSize: 12
@@ -33,6 +34,7 @@ Item {
                 color: panel.active ? theme.accent : theme.dim
             }
             Label {
+                textFormat: Text.PlainText
                 visible: panel.count > 0
                 text: qsTr("%n tracks", "", panel.count)
                 font.pixelSize: 12
@@ -40,6 +42,7 @@ Item {
             }
             Item { Layout.fillWidth: true }
             Label {
+                textFormat: Text.PlainText
                 visible: panel.count > 0
                 text: qsTr("Clear")
                 font.pixelSize: 12
@@ -98,12 +101,14 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
                             Label {
+                                textFormat: Text.PlainText
                                 width: parent.width
                                 text: slot.modelData.title
                                 elide: Text.ElideRight
                                 color: theme.foreground
                             }
                             Label {
+                                textFormat: Text.PlainText
                                 width: parent.width
                                 visible: text.length > 0
                                 text: slot.modelData.artist
@@ -174,12 +179,14 @@ Item {
                 visible: panel.count === 0
                 spacing: 6
                 Label {
+                    textFormat: Text.PlainText
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: qsTr("Nothing queued")
                     font.pixelSize: 15
                 }
                 Label {
+                    textFormat: Text.PlainText
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap

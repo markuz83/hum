@@ -110,6 +110,7 @@ public:
     // The service is org.mpris.MediaPlayer2.<name>; tests pass their own name.
     explicit Mpris(Backend *backend, const QString &name = "hum", const QString &artDirectory = {},
                    QObject *parent = nullptr);
+    ~Mpris() override;
     bool registered() const { return m_registered; }
     QString serviceName() const { return m_service; }
 

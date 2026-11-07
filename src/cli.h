@@ -11,6 +11,9 @@ namespace Cli {
 // True when `word` names a command, so `hum status` isn't mistaken for a folder.
 bool isCommand(const QString &word);
 
+// Text for a terminal, with control characters (and so escape sequences) removed.
+QString printable(const QString &text);
+
 // The player's state, or an object saying it isn't running. `service` is the
 // D-Bus name to ask, org.mpris.MediaPlayer2.hum unless a test passes its own.
 QJsonObject status(const QString &service, bool *running = nullptr);
