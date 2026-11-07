@@ -1,6 +1,7 @@
 // hum — plays the music in your Music folder, with a visualizer.
 
 #include <QCommandLineParser>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -12,6 +13,7 @@
 
 #include "backend.h"
 #include "barlink.h"
+#include "cli.h"
 #include "coverprovider.h"
 #include "mpris.h"
 #include "plugininstall.h"
@@ -27,6 +29,19 @@ int main(int argc, char *argv[]) {
         for (int i = 3; i < argc; ++i)
             flags << argv[i];
         return installBarPlugin(flags);
+    }
+
+    // `hum next`, `hum status --json` and the like control a running Hum.
+    if (argc >= 2 && Cli::isCommand(argv[1]) && !QFileInfo::exists(argv[1])) {
+        QCoreApplication cli(argc, argv);
+        QStringList args;
+        for (int i = 1; i < argc; ++i)
+            args << argv[i];
+        QTextStream out(stdout), err(stderr);
+        const int code = Cli::run(args, out, err);
+        out.flush();
+        err.flush();
+        return code;
     }
 
     QGuiApplication app(argc, argv);
@@ -50,7 +65,7 @@ int main(int argc, char *argv[]) {
     app.installTranslator(&translator);
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QObject::tr("Plays your music with a visualizer."));
+    parser.setApplicationDescription(QObject::tr("Plays your music with a visualizer.") + "\n\n" + Cli::usage());
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument("path", QObject::tr("A music folder, or a file to start playing."));

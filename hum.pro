@@ -11,6 +11,7 @@ HEADERS += \
     src/mpris.h \
     src/plugininstall.h \
     src/barlink.h \
+    src/cli.h \
     src/filepicker.h \
     src/portalfilepicker.h \
     src/theme.h \
@@ -21,6 +22,7 @@ SOURCES += \
     src/mpris.cpp \
     src/plugininstall.cpp \
     src/barlink.cpp \
+    src/cli.cpp \
     src/portalfilepicker.cpp \
     src/analyzer.cpp \
     src/backend.cpp \

@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include <QLocalServer>
 #include <QObject>
+#include <QTimer>
 #include <QVariantList>
 
 class Backend;
@@ -17,8 +18,10 @@ class QLocalSocket;
 //   S Playing|Paused|Stopped        playback state, sent on connect and on change
 //   N <title> TAB <artist>          the current track, sent on connect and on change
 //   L <n> <n> <n> ...               spectrum bars as whole numbers 0 to 99, ~30 times a second
+//   P <position> <duration>         milliseconds into the track and its length, twice a second
 // Lines to Hum:
 //   playpause | next | previous | volume <+n|-n>   (volume moves by n percent)
+//   seek <ms>                       jump to this many milliseconds into the track
 class BarLink : public QObject {
     Q_OBJECT
 
@@ -38,6 +41,8 @@ private:
     void broadcast(const QByteArray &line);
     QByteArray stateLine() const;
     QByteArray trackLine() const;
+    QByteArray progressLine() const;
+    void sendProgress();
     void sendState();
     void sendLevels();
 
@@ -48,5 +53,6 @@ private:
     // Declared last so it is destroyed first: its connected sockets announce
     // that they disconnected while it goes, and that must find m_clients alive.
     QElapsedTimer m_lastLevels;
+    QTimer m_progressTimer;
     QLocalServer m_server;
 };

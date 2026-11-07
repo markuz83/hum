@@ -19,6 +19,10 @@ BarLink::BarLink(Backend *backend, const QString &path, int bars, QObject *paren
     connect(backend, &Backend::playingChanged, this, &BarLink::sendState);
     connect(backend, &Backend::currentChanged, this, &BarLink::sendState);
     connect(backend, &Backend::levelsChanged, this, &BarLink::sendLevels);
+    connect(backend, &Backend::seeked, this, &BarLink::sendProgress);
+    connect(backend, &Backend::durationChanged, this, &BarLink::sendProgress);
+    m_progressTimer.setInterval(500);
+    connect(&m_progressTimer, &QTimer::timeout, this, &BarLink::sendProgress);
 }
 
 QString BarLink::encodeLevels(const QVariantList &levels, int bars) {
@@ -51,6 +55,15 @@ QByteArray BarLink::stateLine() const {
     return "S " + m_backend->playbackState().toUtf8();
 }
 
+QByteArray BarLink::progressLine() const {
+    return "P " + QByteArray::number(m_backend->position()) + " " + QByteArray::number(std::max<qint64>(0, m_backend->duration()));
+}
+
+void BarLink::sendProgress() {
+    if (!m_clients.isEmpty())
+        broadcast(progressLine());
+}
+
 QByteArray BarLink::trackLine() const {
     return encodeTrack(m_backend->title(), m_backend->artist()).toUtf8();
 }
@@ -61,10 +74,13 @@ void BarLink::accept() {
         connect(client, &QLocalSocket::disconnected, this, [this, client] {
             m_clients.removeOne(client);
             client->deleteLater();
+            if (m_clients.isEmpty())
+                m_progressTimer.stop();
         });
         connect(client, &QLocalSocket::readyRead, this, [this, client] { readCommands(client); });
         // A new plugin instance learns the current state straight away.
-        client->write(stateLine() + "\n" + trackLine() + "\n");
+        client->write(stateLine() + "\n" + trackLine() + "\n" + progressLine() + "\n");
+        m_progressTimer.start();
     }
 }
 
@@ -77,6 +93,8 @@ void BarLink::readCommands(QLocalSocket *client) {
             m_backend->next();
         else if (line == "previous")
             m_backend->previous();
+        else if (line.startsWith("seek "))
+            m_backend->seek(std::clamp<qint64>(line.mid(5).toLongLong(), 0, std::max<qint64>(0, m_backend->duration())));
         else if (line.startsWith("volume "))
             m_backend->changeVolume(std::clamp(line.mid(7).toInt(), -100, 100) / 100.0);
     }
@@ -105,6 +123,7 @@ void BarLink::sendState() {
         m_lastTrack = track;
         broadcast(track);
     }
+    broadcast(progressLine());
 }
 
 void BarLink::sendLevels() {

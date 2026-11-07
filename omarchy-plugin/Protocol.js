@@ -1,12 +1,13 @@
 .pragma library
 
 // What Hum says over its bar socket, one line at a time (see src/barlink.h):
-//   S Playing|Paused|Stopped      N <title> TAB <artist>      L <n> <n> ...
+//   S Playing|Paused|Stopped      N <title> TAB <artist>      L <n> <n> ...      P <position> <duration>
 // The lines come from another program and the title from a file's tags, so
 // everything is bounded and nothing is ever interpreted, only stored.
 
 var MAX_BARS = 64
 var MAX_TEXT = 200
+var MAX_MS = 100 * 3600 * 1000  // a hundred hours is longer than any track
 
 function parse(line) {
   line = String(line)
@@ -25,6 +26,14 @@ function parse(line) {
   if (kind === "S") {
     var state = rest === "Playing" || rest === "Paused" ? rest : "Stopped"
     return { type: "state", value: state }
+  }
+  if (kind === "P") {
+    var times = rest.split(" ")
+    var position = parseInt(times[0], 10), duration = parseInt(times[1], 10)
+    // Milliseconds; anything that isn't a sane number counts as unknown.
+    position = isNaN(position) || position < 0 ? 0 : Math.min(position, MAX_MS)
+    duration = isNaN(duration) || duration < 0 ? 0 : Math.min(duration, MAX_MS)
+    return { type: "progress", position: position, duration: duration }
   }
   if (kind === "N") {
     var parts = rest.split("\t")
@@ -48,4 +57,10 @@ function resample(values, count) {
   return out
 }
 
-if (typeof module !== "undefined") module.exports = { parse: parse, resample: resample, MAX_BARS: MAX_BARS, MAX_TEXT: MAX_TEXT }
+// How far through the track, from 0 to 1; 0 while the length is unknown.
+function fraction(position, duration) {
+  if (!(duration > 0)) return 0
+  return Math.max(0, Math.min(1, position / duration))
+}
+
+if (typeof module !== "undefined") module.exports = { parse: parse, resample: resample, fraction: fraction, MAX_BARS: MAX_BARS, MAX_TEXT: MAX_TEXT, MAX_MS: MAX_MS }

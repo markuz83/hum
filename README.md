@@ -25,6 +25,10 @@ Tags come from the files, and anything untagged falls back to the `Artist/Album/
 Cover art is the embedded picture, or the folder's `cover.jpg`, `folder.jpg`, `front.png` and the like
 (a folder with a single image uses that one).
 
+Tracks play back to back without a gap, or with a crossfade (`C`). Hum can level loudness from ReplayGain
+tags (`G`), stop after a while with a sleep timer (`T`), show lyrics (`Y`) and sort the title list (`Shift+S`).
+It watches the library folder, so files you add or remove appear without reopening it.
+
 The play queue sits to the right of the browser. Anything you add plays before the library carries on.
 Drag the divider, or use `[` and `]`, to resize the two panes; double-click it or press `\` to reset.
 
@@ -37,9 +41,14 @@ Drag the divider, or use `[` and `]`, to resize the two panes; double-click it o
 | ← → | Seek 5 seconds |
 | + − | Volume up / down |
 | M | Mute |
-| S / R | Shuffle / repeat |
+| S / R | Shuffle / repeat (with shuffle on, P goes back through what really played) |
 | V | Change visualizer (bars, mirrored, line) |
 | F | Visualizer refresh rate (display, 30, 60, 120, 144, 240 Hz) |
+| Y | Show the lyrics in place of the visualizer |
+| Shift+S | Sort the title list: album order, title, year, recently added, length |
+| G | Volume leveling: off, per track, per album (ReplayGain) |
+| C | Crossfade: off (gapless), then 2 to 12 seconds |
+| T | Sleep timer: 15, 30, 45, 60, 90 minutes, end of track, off |
 | J K ↑ ↓ | Move in the list |
 | H L Tab | Switch column |
 | Enter | Play the selected track |
@@ -64,9 +73,36 @@ and smoothed the way [cava](https://github.com/karlstav/cava) does it. By defaul
 frame the display draws; press `F` to lock it to a fixed rate instead. Any rate from 10 to 360 Hz can be
 set with `"visualizerRate"` in `~/.config/hum/state.json` (0 follows the display).
 
-### Media keys and the bar
+### Gapless playback, crossfade and leveling
+
+Hum keeps the next track loaded in a second player and starts it just before the current one ends. A player
+that is already loaded still takes 10 to 80 ms to reach the speakers, so the handoff is timed with a small
+margin: measured by recording the output, tracks overlap by up to about 75 ms and were not seen to leave a
+gap. With a crossfade the two tracks fade equal-power across the chosen time (only for tracks at least four
+times as long as the fade). Pressing next or choosing a track starts it at once.
+
+ReplayGain is read from `REPLAYGAIN_*` tags and from Opus `R128_*` gains. A boost can only use the room
+below full volume, because the audio output cannot go above full scale.
+
+### Lyrics
+
+`Y` shows lyrics from a `.lrc` file beside the track (synced, the current line highlighted and a click on a
+line seeks to it), or from the file's lyrics tag (shown as plain text).
+
+### Media keys, the command line and the bar
 
 Hum speaks MPRIS, so media keys, `playerctl` and desktop widgets control it.
+
+From a terminal or a script, with Hum running:
+
+```sh
+hum status [--json]    # what is playing
+hum play | pause | toggle | stop | next | previous
+hum volume [N | +N | -N]
+hum seek N | +N | -N
+```
+
+Each command exits 0, or 1 with the reason on stderr (for example when Hum isn't running).
 
 There is also an Omarchy bar widget that draws a live mini spectrum. Install and enable it with:
 
@@ -80,7 +116,7 @@ See [omarchy-plugin/README.md](omarchy-plugin/README.md) for its controls and se
 
 | Path | What |
 |---|---|
-| `~/.config/hum/state.json` | Volume, shuffle, repeat, visualizer, last track and position, queue |
+| `~/.config/hum/state.json` | Volume, shuffle, repeat, visualizer, leveling, crossfade, sort, lyrics, last track and position, queue |
 | `~/.cache/hum/tags.json` | Tag and length cache, keyed by file size and modified time |
 
 Hum never changes your music files. State is saved atomically.

@@ -9,7 +9,7 @@ const path = require("node:path")
 const source = fs.readFileSync(path.join(__dirname, "../Protocol.js"), "utf8").replace(/^\.pragma library\n/, "")
 const loaded = { exports: {} }
 new Function("module", source)(loaded)
-const { parse, resample, MAX_BARS, MAX_TEXT } = loaded.exports
+const { parse, resample, fraction, MAX_BARS, MAX_TEXT, MAX_MS } = loaded.exports
 
 test("levels are whole numbers clamped to 0..99", () => {
   assert.deepStrictEqual(parse("L 0 50 99 150 -4 abc"), { type: "levels", values: [0, 50, 99, 99, 0, 0] })
@@ -48,4 +48,18 @@ test("resample keeps the loudest band down and repeats up", () => {
   assert.deepStrictEqual(resample([10, 30, 50, 70], 2), [30, 70])
   assert.deepStrictEqual(resample([10, 20], 4), [10, 10, 20, 20])
   assert.deepStrictEqual(resample([], 4), [])
+})
+
+test("progress is two bounded millisecond counts", () => {
+  assert.deepStrictEqual(parse("P 1500 273720"), { type: "progress", position: 1500, duration: 273720 })
+  assert.deepStrictEqual(parse("P -5 abc"), { type: "progress", position: 0, duration: 0 })
+  assert.strictEqual(parse("P 99999999999999 1").position, MAX_MS)
+  assert.deepStrictEqual(parse("P"), { type: "progress", position: 0, duration: 0 })
+})
+
+test("fraction stays within 0 to 1 and is 0 without a length", () => {
+  assert.strictEqual(fraction(50, 200), 0.25)
+  assert.strictEqual(fraction(500, 200), 1)
+  assert.strictEqual(fraction(-5, 200), 0)
+  assert.strictEqual(fraction(50, 0), 0)
 })

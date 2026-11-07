@@ -15,7 +15,16 @@ BarWidget {
   readonly property int barCount: Math.max(4, Math.min(24, Math.round(Number(setting("bars", 12)))))
   readonly property bool horizontal: !vertical
 
+  // Optional extras: the track's name scrolling beside the bars, and a thin
+  // progress line along the bottom edge that a click seeks along.
+  readonly property bool showTitle: horizontal && setting("showTitle", false) === true
+  readonly property int titleWidth: Math.max(60, Math.min(400, Math.round(Number(setting("titleWidth", 160)))))
+  readonly property bool showProgress: setting("progress", true) !== false
+
   property string playback: "Stopped"
+  property real position: 0
+  property real duration: 0
+  readonly property real played: Protocol.fraction(position, duration)
   property string title: ""
   property string artist: ""
   property var levels: []
@@ -34,7 +43,7 @@ BarWidget {
   visible: active
   implicitHeight: barSize
   implicitWidth: !active ? 0
-    : horizontal ? shownBars * thickness + (shownBars - 1) * gap + Style.space(14)
+    : horizontal ? content.implicitWidth + Style.space(14)
     : barSize
 
   function send(command) {
@@ -51,6 +60,9 @@ BarWidget {
     } else if (message.type === "state") {
       playback = message.value
       if (message.value !== "Playing") levels = []
+    } else if (message.type === "progress") {
+      position = message.position
+      duration = message.duration
     } else if (message.type === "track") {
       title = message.title
       artist = message.artist
@@ -81,30 +93,92 @@ BarWidget {
     onTriggered: link.connected = true
   }
 
-  Item {
-    id: canvas
+  Row {
+    id: content
     anchors.centerIn: parent
-    width: root.horizontal ? root.shownBars * root.thickness + (root.shownBars - 1) * root.gap : root.crossSize
-    height: root.horizontal ? root.crossSize : root.shownBars * root.thickness + (root.shownBars - 1) * root.gap
+    spacing: Style.space(8)
 
-    Repeater {
-      model: root.shownBars
+    Item {
+      id: canvas
+      anchors.verticalCenter: parent.verticalCenter
+      width: root.horizontal ? root.shownBars * root.thickness + (root.shownBars - 1) * root.gap : root.crossSize
+      height: root.horizontal ? root.crossSize : root.shownBars * root.thickness + (root.shownBars - 1) * root.gap
 
-      Rectangle {
-        required property int index
-        readonly property real level: (root.bars[index] || 0) / 99
-        // Never fully empty, so the widget reads as a row of bars at rest.
-        readonly property real length: Math.max(root.thickness, level * (root.horizontal ? canvas.height : canvas.width))
+      Repeater {
+        model: root.shownBars
 
-        radius: Math.min(root.thickness / 2, Style.cornerRadius)
-        color: root.bar
-          ? (root.playing ? root.bar.barForeground : Qt.darker(root.bar.barForeground, 1.8))
-          : "white"
-        width: root.horizontal ? root.thickness : length
-        height: root.horizontal ? length : root.thickness
-        x: root.horizontal ? index * (root.thickness + root.gap) : 0
-        y: root.horizontal ? canvas.height - height : index * (root.thickness + root.gap)
+        Rectangle {
+          required property int index
+          readonly property real level: (root.bars[index] || 0) / 99
+          // Never fully empty, so the widget reads as a row of bars at rest.
+          readonly property real length: Math.max(root.thickness, level * (root.horizontal ? canvas.height : canvas.width))
+
+          radius: Math.min(root.thickness / 2, Style.cornerRadius)
+          color: root.bar
+            ? (root.playing ? root.bar.barForeground : Qt.darker(root.bar.barForeground, 1.8))
+            : "white"
+          width: root.horizontal ? root.thickness : length
+          height: root.horizontal ? length : root.thickness
+          x: root.horizontal ? index * (root.thickness + root.gap) : 0
+          y: root.horizontal ? canvas.height - height : index * (root.thickness + root.gap)
+        }
       }
+    }
+
+    // The track's name, scrolling when it is longer than the room given.
+    Item {
+      id: titleClip
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.showTitle && root.title !== ""
+      width: Math.min(root.titleWidth, titleText.implicitWidth)
+      height: titleText.implicitHeight
+      clip: true
+
+      Text {
+        id: titleText
+        textFormat: Text.PlainText
+        text: root.title + (root.artist ? "  ·  " + root.artist : "")
+        color: root.bar ? root.bar.barForeground : "white"
+        opacity: root.playing ? 1 : 0.6
+        font.family: root.bar ? root.bar.fontFamily : ""
+        font.pixelSize: Style.font.body
+        anchors.verticalCenter: parent.verticalCenter
+
+        readonly property bool needsScroll: implicitWidth > titleClip.width
+        // Every frame of the scroll redraws the bar, so it only runs while the
+        // track plays and the bar is on screen to show it.
+        NumberAnimation on x {
+          running: titleText.needsScroll && root.playing && root.visible && titleClip.visible
+                   && !(root.bar && root.bar.barHidden) && !Style.reduceMotion
+          onRunningChanged: if (!running) titleText.x = 0
+          loops: Animation.Infinite
+          duration: Style.duration(Math.max(6000, titleText.implicitWidth * 25))
+          from: titleClip.width
+          to: -titleText.implicitWidth
+          easing.type: Easing.Linear
+        }
+      }
+    }
+  }
+
+  // How far through the track: a hairline along the bottom edge (or the
+  // trailing edge of a vertical bar), under everything else.
+  Rectangle {
+    id: track
+    visible: root.showProgress && root.duration > 0
+    readonly property real span: root.horizontal ? content.width : canvas.height
+    x: root.horizontal ? content.x : root.width - width - 1
+    y: root.horizontal ? root.height - height - 1 : content.y + (content.height - canvas.height) / 2
+    width: root.horizontal ? span : Math.max(2, Style.space(2))
+    height: root.horizontal ? Math.max(2, Style.space(2)) : span
+    radius: height / 2
+    color: root.bar ? Qt.alpha(root.bar.barForeground, 0.18) : "#40ffffff"
+
+    Rectangle {
+      width: root.horizontal ? parent.width * root.played : parent.width
+      height: root.horizontal ? parent.height : parent.height * root.played
+      radius: parent.radius
+      color: root.bar ? root.bar.barForeground : "white"
     }
   }
 
@@ -114,8 +188,22 @@ BarWidget {
     cursorShape: Qt.PointingHandCursor
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
+    // A click on the progress line (the outer few pixels of the bar) seeks.
+    function onProgress(mouse) {
+      if (!root.showProgress || root.duration <= 0) return -1
+      var edge = Math.max(6, Style.space(6))
+      if (root.horizontal) {
+        if (mouse.y < root.height - edge) return -1
+        return (mouse.x - track.x) / Math.max(1, track.width)
+      }
+      if (mouse.x < root.width - edge) return -1
+      return (mouse.y - track.y) / Math.max(1, track.height)
+    }
+
     onClicked: function(mouse) {
-      if (mouse.button === Qt.MiddleButton) root.send("playpause")
+      var along = mouse.button === Qt.LeftButton ? onProgress(mouse) : -1
+      if (along >= 0) root.send("seek " + Math.round(Math.max(0, Math.min(1, along)) * root.duration))
+      else if (mouse.button === Qt.MiddleButton) root.send("playpause")
       else if (mouse.button === Qt.RightButton) root.send("next")
       else Quickshell.execDetached(["omarchy-launch-or-focus", "hum", "uwsm-app -- hum"])
     }

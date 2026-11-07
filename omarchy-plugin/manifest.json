@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "markm.hum-visualizer",
   "name": "Hum visualizer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Mark Moore",
   "license": "MIT",
-  "description": "Hum's live spectrum in the Omarchy bar, with click, scroll and middle-click controls.",
+  "description": "Hum's live spectrum in the Omarchy bar, with an optional scrolling title and a progress line, and click, scroll and middle-click controls.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,12 +14,15 @@
   },
   "barWidget": {
     "displayName": "Hum visualizer",
-    "description": "Live spectrum bars while Hum plays. Click opens Hum, middle-click plays or pauses, right-click skips, scroll changes the volume.",
+    "description": "Live spectrum bars while Hum plays. Click opens Hum, click on the bottom edge seeks, middle-click plays or pauses, right-click skips, scroll changes the volume.",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "bars": 12
+      "bars": 12,
+      "showTitle": false,
+      "titleWidth": 160,
+      "progress": true
     },
     "schema": [
       {
@@ -30,6 +33,27 @@
         "max": 24,
         "step": 1,
         "defaultValue": 12
+      },
+      {
+        "key": "showTitle",
+        "type": "boolean",
+        "label": "Show the track name",
+        "defaultValue": false
+      },
+      {
+        "key": "titleWidth",
+        "type": "integer",
+        "label": "Track name width (pixels)",
+        "min": 60,
+        "max": 400,
+        "step": 10,
+        "defaultValue": 160
+      },
+      {
+        "key": "progress",
+        "type": "boolean",
+        "label": "Show a progress line",
+        "defaultValue": true
       }
     ]
   }

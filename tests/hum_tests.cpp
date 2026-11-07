@@ -11,6 +11,7 @@
 #include "backend.h"
 #include "mpris.h"
 #include "barlink.h"
+#include "cli.h"
 #include <QLocalSocket>
 #include "filepicker.h"
 #include <QDBusConnection>
@@ -394,6 +395,77 @@ private slots:
         QCOMPARE(again.tags.size(), 3);
     }
 
+    void commandLineStatusAndControls()
+    {
+        if (!QDBusConnection::sessionBus().isConnected())
+            QSKIP("needs a D-Bus session bus");
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        make(dir.path() + "/1.mp3", "First", "Zed", "Z Album", 1);
+        make(dir.path() + "/2.mp3", "Second", "Zed", "Z Album", 2);
+        Backend backend;
+        backend.setVolume(0.4);
+        ready(backend, dir, {});
+        const QString name = "humcli" + QString::number(QCoreApplication::applicationPid());
+        Mpris mpris(&backend, name, dir.path() + "/art");
+        QVERIFY(mpris.registered());
+        const QString service = mpris.serviceName();
+
+        auto run = [&](const QStringList &args, QString *outText = nullptr, QString *errText = nullptr) {
+            QString o, e;
+            QTextStream out(&o), err(&e);
+            const int code = Cli::run(args, out, err, service);
+            out.flush();
+            err.flush();
+            if (outText) *outText = o;
+            if (errText) *errText = e;
+            return code;
+        };
+        QVERIFY(Cli::isCommand("status"));
+        QVERIFY(!Cli::isCommand("Music"));
+
+        QString out, err;
+        QCOMPARE(run({"toggle"}), 0);
+        QTRY_VERIFY(backend.playing());
+        QCOMPARE(run({"status", "--json"}, &out), 0);
+        const QJsonObject status = QJsonDocument::fromJson(out.toUtf8()).object();
+        QCOMPARE(status.value("running").toBool(), true);
+        QCOMPARE(status.value("state").toString(), QString("Playing"));
+        QCOMPARE(status.value("title").toString(), QString("First"));
+        QCOMPARE(status.value("artist").toString(), QString("Zed"));
+        QVERIFY(status.value("duration").toDouble() > 1000);
+        QCOMPARE(status.value("repeat").toString(), QString("off"));
+
+        QCOMPARE(run({"status"}, &out), 0);
+        QVERIFY(out.startsWith("Playing: First — Zed"));
+        QCOMPARE(run({"next"}), 0);
+        QTRY_COMPARE(backend.currentRow(), 1);
+        QCOMPARE(run({"volume", "+10"}, &out), 0);
+        QCOMPARE(out.trimmed(), QString("50"));
+        QVERIFY(qAbs(backend.volume() - 0.5) < 0.01);
+        QCOMPARE(run({"volume", "25"}, &out), 0);
+        QVERIFY(qAbs(backend.volume() - 0.25) < 0.01);
+        QCOMPARE(run({"volume", "loud"}, &out, &err), 1);
+        QVERIFY(!err.isEmpty());
+        QCOMPARE(run({"seek", "2"}), 0);
+        QTRY_VERIFY(qAbs(backend.position() - 2000) < 500);
+        QCOMPARE(run({"pause"}), 0);
+        QTRY_VERIFY(!backend.playing());
+        QCOMPARE(run({"bogus"}, &out, &err), 1);
+        QVERIFY(err.contains("Unknown command"));
+    }
+
+    void commandLineSaysWhenHumIsNotRunning()
+    {
+        QString out, err;
+        QTextStream o(&out), e(&err);
+        QCOMPARE(Cli::run({"status", "--json"}, o, e, "org.mpris.MediaPlayer2.hum-not-running-test"), 1);
+        o.flush(); e.flush();
+        QCOMPARE(QJsonDocument::fromJson(out.toUtf8()).object().value("running").toBool(), false);
+        QVERIFY(err.contains("isn't running"));
+    }
+
     void mprisExposesAndControlsThePlayer()
     {
         if (!QDBusConnection::sessionBus().isConnected())
@@ -623,6 +695,7 @@ private slots:
         QTRY_VERIFY(lines.size() >= 2);
         QCOMPARE(lines[0], QString("S Stopped"));
         QCOMPARE(lines[1], QString("N"));  // no track yet; trimming drops the trailing tab
+        QCOMPARE(lines[2], QString("P 0 0"));
 
         // A command from the bar starts playback, and the stream follows.
         client.write("playpause\n");
@@ -633,6 +706,15 @@ private slots:
             if (line.startsWith("L "))
                 QCOMPARE(line.split(' ').size(), 25);  // "L" plus 24 bars
         QCOMPARE(backend.currentRow(), 0);
+
+        // Progress follows playback, and the bar can seek.
+        QTRY_VERIFY(std::any_of(lines.begin(), lines.end(), [](const QString &l) { return l.startsWith("P ") && l != "P 0 0"; }));
+        client.write("seek 3000\n");
+        QTRY_VERIFY(backend.position() >= 2500);
+        QTRY_VERIFY(std::any_of(lines.begin(), lines.end(), [](const QString &l) {
+            const auto parts = l.split(' ');
+            return parts.size() == 3 && parts[0] == "P" && parts[1].toLongLong() >= 2500;
+        }));
 
         // Volume moves in percent, and unknown lines are ignored.
         client.write("volume -20\nnonsense\nnext\n");
