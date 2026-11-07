@@ -36,14 +36,22 @@ ApplicationWindow {
     // The empty library (and the scan before it) replaces the three columns.
     readonly property bool emptyLibrary: backend.libraryCount === 0 && !backend.scanning
     // Errors fade after a while and can be dismissed; a new one shows again.
-    // Follow the display this window is on, and show what F chose for a moment.
-    property bool rateNoticeVisible: false
-    readonly property string rateNoticeText: qsTr("Visualizer refresh: %1").arg(
-        backend.visualizerRate === 0
-            ? qsTr("matches display (%1 Hz)").arg(Math.round(backend.refreshRate))
-            : qsTr("%1 Hz").arg(backend.visualizerRate))
+    // A short message after a key changes a setting that has no control of its own.
+    property bool noticeVisible: false
+    property string noticeText: ""
+    function notify(text) {
+        noticeText = text
+        noticeVisible = true
+        noticeTimer.restart()
+    }
+    readonly property string rateLabel: backend.visualizerRate === 0
+        ? qsTr("matches display (%1 Hz)").arg(Math.round(backend.refreshRate))
+        : qsTr("%1 Hz").arg(backend.visualizerRate)
+    function sleepLabel(minutes) {
+        return minutes === 0 ? qsTr("off") : minutes < 0 ? qsTr("end of track") : qsTr("%1 min").arg(minutes)
+    }
     Binding { target: backend; property: "refreshRate"; value: win.screen ? win.screen.refreshRate : 60 }
-    Timer { id: rateNotice; interval: 2000; onTriggered: win.rateNoticeVisible = false }
+    Timer { id: noticeTimer; interval: 2000; onTriggered: win.noticeVisible = false }
     // One tick per frame the window actually draws, while the bars move.
     FrameAnimation {
         running: backend.animating && backend.visualizerRate === 0
@@ -163,7 +171,34 @@ ApplicationWindow {
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleRepeat() }
     Shortcut {
         sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: { backend.cycleVisualizerRate(); win.rateNoticeVisible = true; rateNotice.restart() }
+        onActivated: { backend.cycleVisualizerRate(); win.notify(qsTr("Visualizer refresh: %1").arg(win.rateLabel)) }
+    }
+    Shortcut {
+        sequence: "G"; context: Qt.ApplicationShortcut; enabled: !win.typing
+        onActivated: {
+            backend.cycleReplayGain()
+            win.notify(qsTr("Volume leveling: %1").arg(backend.replayGain === 0 ? qsTr("off")
+                : backend.replayGain === 1 ? qsTr("per track") : qsTr("per album")))
+        }
+    }
+    Shortcut {
+        sequence: "C"; context: Qt.ApplicationShortcut; enabled: !win.typing
+        onActivated: {
+            backend.cycleCrossfade()
+            win.notify(qsTr("Crossfade: %1").arg(backend.crossfade === 0 ? qsTr("off (gapless)") : qsTr("%1 s").arg(backend.crossfade)))
+        }
+    }
+    Shortcut {
+        sequence: "T"; context: Qt.ApplicationShortcut; enabled: !win.typing
+        onActivated: { backend.cycleSleep(); win.notify(qsTr("Sleep timer: %1").arg(win.sleepLabel(backend.sleepSetting))) }
+    }
+    Shortcut { sequence: "Y"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.showLyrics = !backend.showLyrics }
+    Shortcut {
+        sequence: "Shift+S"; context: Qt.ApplicationShortcut; enabled: !win.typing
+        onActivated: {
+            backend.cycleSort()
+            win.notify(qsTr("Sort: %1").arg([qsTr("album order"), qsTr("title"), qsTr("year"), qsTr("recently added"), qsTr("length")][backend.sortMode]))
+        }
     }
     Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleVisualizer() }
     Shortcut { sequences: ["J", "Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(1) }
@@ -193,7 +228,7 @@ ApplicationWindow {
         property int column: 2
         property int row: 0
         font.family: theme.fontFamily
-        MenuItem { text: qsTr("Play"); onTriggered: win.playFrom(contextMenu.column, contextMenu.row) }
+        MenuItem { objectName: "playItem"; text: qsTr("Play"); onTriggered: win.playFrom(contextMenu.column, contextMenu.row) }
         MenuItem { objectName: "playNextItem"; text: qsTr("Play next"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, true) }
         MenuItem { objectName: "addItem"; text: qsTr("Add to queue"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, false) }
     }
@@ -315,19 +350,27 @@ ApplicationWindow {
                         }
                     }
 
-                    Visualizer {
+                    Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        levels: backend.levels
-                        style: backend.visualizerStyle
-                        color: theme.accent
-                        radius: Math.min(4, theme.radius)
 
+                        Visualizer {
+                            anchors.fill: parent
+                            visible: !backend.showLyrics
+                            levels: backend.levels
+                            style: backend.visualizerStyle
+                            color: theme.accent
+                            radius: Math.min(4, theme.radius)
+                        }
+                        LyricsView {
+                            anchors.fill: parent
+                            visible: backend.showLyrics
+                        }
                         Text {
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            visible: win.rateNoticeVisible
-                            text: win.rateNoticeText
+                            visible: win.noticeVisible
+                            text: win.noticeText
                             color: theme.dim
                             font.pixelSize: 13
                         }
@@ -368,6 +411,13 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         Label { text: win.clock(backend.position); color: win.dim }
+                        Item { Layout.fillWidth: true }
+                        // Time left on the sleep timer, or that it will stop after this track.
+                        Label {
+                            visible: backend.sleepSetting !== 0
+                            color: theme.accent
+                            text: "☾ " + (backend.sleepSetting < 0 ? qsTr("end of track") : win.clock(backend.sleepRemaining * 1000))
+                        }
                         Item { Layout.fillWidth: true }
                         Label { text: win.clock(backend.duration); color: win.dim }
                     }
@@ -566,7 +616,7 @@ ApplicationWindow {
                             Layout.preferredWidth: 1.4
                             heading: qsTr("Title")
                             model: backend.titles
-            trailing: backend.titleSeconds.map(s => s > 0 ? win.clock(s * 1000) : "")
+                            trailing: backend.titleSeconds.map(s => s > 0 ? win.clock(s * 1000) : "")
                             active: win.activeColumn === 2
                             playingIndex: backend.currentRow
                             onClicked: win.activeColumn = 2

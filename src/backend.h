@@ -1,7 +1,11 @@
 #pragma once
 
+#include <array>
+#include <memory>
+
 #include <QAudioBufferOutput>
 #include <QAudioOutput>
+#include <QFileSystemWatcher>
 #include <QFutureWatcher>
 #include <QHash>
 #include <QImage>
@@ -9,6 +13,7 @@
 #include <QObject>
 #include <QQueue>
 #include <QStringList>
+#include <QtMath>
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QVariantList>
@@ -47,6 +52,13 @@ class Backend : public QObject {
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY volumeChanged)
+    // Volume leveling from ReplayGain tags: 0 off, 1 per track, 2 per album.
+    Q_PROPERTY(int replayGain READ replayGain WRITE setReplayGain NOTIFY modeChanged)
+    // Seconds of overlap between tracks; 0 plays them back to back, gaplessly.
+    Q_PROPERTY(int crossfade READ crossfade WRITE setCrossfade NOTIFY modeChanged)
+    // Sleep timer: 0 off, minutes left to run, or -1 to stop after this track.
+    Q_PROPERTY(int sleepSetting READ sleepSetting NOTIFY sleepChanged)
+    Q_PROPERTY(int sleepRemaining READ sleepRemaining NOTIFY sleepChanged)
     Q_PROPERTY(bool shuffle READ shuffle WRITE setShuffle NOTIFY modeChanged)
     Q_PROPERTY(int repeat READ repeat WRITE setRepeat NOTIFY modeChanged)
     // Visualizer updates per second; 0 follows the display's refresh rate.
@@ -55,6 +67,13 @@ class Backend : public QObject {
     Q_PROPERTY(double refreshRate READ refreshRate WRITE setRefreshRate NOTIFY modeChanged)
     // True while the bars are moving, so a frame-synced driver knows to run.
     Q_PROPERTY(bool animating READ animating NOTIFY animatingChanged)
+    // How the title list is ordered: 0 album order, 1 title, 2 year, 3 recently added, 4 length.
+    Q_PROPERTY(int sortMode READ sortMode WRITE setSortMode NOTIFY modeChanged)
+    // Lyrics of the playing track: lines of text, and when each one starts if they are synced.
+    Q_PROPERTY(bool showLyrics READ showLyrics WRITE setShowLyrics NOTIFY modeChanged)
+    Q_PROPERTY(QStringList lyricLines READ lyricLines NOTIFY lyricsChanged)
+    Q_PROPERTY(QVariantList lyricTimes READ lyricTimes NOTIFY lyricsChanged)
+    Q_PROPERTY(bool lyricsSynced READ lyricsSynced NOTIFY lyricsChanged)
     Q_PROPERTY(int visualizerStyle READ visualizerStyle WRITE setVisualizerStyle NOTIFY modeChanged)
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY browserChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
@@ -83,11 +102,15 @@ public:
     int coverId() const { return m_coverId; }
     QImage cover() const { return m_cover; }
     bool reading() const { return m_reading; }
-    bool playing() const { return m_player.playbackState() == QMediaPlayer::PlayingState; }
-    qint64 position() const { return m_player.position(); }
-    qint64 duration() const { return m_player.duration(); }
+    bool playing() const;
+    qint64 position() const;
+    qint64 duration() const;
     qreal volume() const { return m_volume; }
-    bool muted() const { return m_audio.isMuted(); }
+    bool muted() const { return m_muted; }
+    int replayGain() const { return m_replayGain; }
+    int crossfade() const { return m_crossfade; }
+    int sleepSetting() const { return m_sleepSetting; }
+    int sleepRemaining() const;
     bool shuffle() const { return m_shuffle; }
     int repeat() const { return m_repeat; }
     QString filter() const { return m_filter; }
@@ -97,6 +120,13 @@ public:
     QString currentPath() const { return m_current >= 0 ? m_tracks[m_current].path : QString(); }
     // "Playing", "Paused" or "Stopped", as MPRIS names them.
     QString playbackState() const;
+    int sortMode() const { return m_sortMode; }
+    bool showLyrics() const { return m_showLyrics; }
+    QStringList lyricLines() const { return m_lyrics.lines; }
+    QVariantList lyricTimes() const;
+    bool lyricsSynced() const { return !m_lyrics.times.isEmpty(); }
+    // The line being sung at this moment, or -1 before the first one.
+    Q_INVOKABLE int lyricIndexAt(qint64 ms) const;
     int visualizerRate() const { return m_visualizerRate; }
     double refreshRate() const { return m_refreshRate; }
     bool animating() const { return m_animating; }
@@ -114,7 +144,20 @@ public:
         QString artist, album, title;
         int track = 0, disc = 0;
         int seconds = 0;  // length, rounded; 0 when unknown
+        // ReplayGain in dB, NaN when the file has none.
+        double trackGain = qQNaN(), albumGain = qQNaN();
+        int year = 0;
+        qint64 modified = 0;  // file modified time, ms since the epoch
     };
+    // Lyrics from a .lrc file beside the track, or from its tags. A line is
+    // synced when the text carries [mm:ss.xx] stamps, and times then holds
+    // the start of every line.
+    struct Lyrics {
+        QStringList lines;
+        QList<qint64> times;
+    };
+    static Lyrics parseLyrics(const QString &text);
+    static Lyrics readLyrics(const QString &path, const QString &ffprobe);
     struct TagResult {
         QHash<QString, Tags> tags;
         bool ffprobeMissing = false;
@@ -179,9 +222,21 @@ public:
     void setShuffle(bool shuffle);
     void setRepeat(int repeat);
     void setVisualizerStyle(int style);
+    void setSortMode(int mode);
+    Q_INVOKABLE void cycleSort();
+    void setShowLyrics(bool show);
     void setVisualizerRate(int hz);
     void setRefreshRate(double hz);
     Q_INVOKABLE void cycleVisualizerRate();
+    // The gain ReplayGain gives a file under the current mode, as a factor.
+    double leveling(const QString &path) const;
+    void setReplayGain(int mode);
+    void setCrossfade(int seconds);
+    Q_INVOKABLE void cycleReplayGain();
+    Q_INVOKABLE void cycleCrossfade();
+    // Off, 15, 30, 45, 60 and 90 minutes, then the end of the current track.
+    Q_INVOKABLE void cycleSleep();
+    void setSleep(int setting);
     // Called once per display frame while the rate follows the display.
     Q_INVOKABLE void frame();
     void setVolume(qreal volume);
@@ -192,6 +247,8 @@ signals:
     void coverChanged();
     void queueChanged();
     void animatingChanged();
+    void sleepChanged();
+    void lyricsChanged();
     void layoutChanged();
     void readingChanged();
     void currentChanged();
@@ -214,6 +271,9 @@ private:
         QString artist, album, title;
         int track = 0, disc = 0;
         int seconds = 0;
+        double trackGain = qQNaN(), albumGain = qQNaN();
+        int year = 0;
+        qint64 added = 0;  // file modified time, for "recently added"
     };
 
     void loadState();
@@ -234,7 +294,6 @@ private:
     void refresh();
     void updateCover(const QImage &embedded);
     void setError(const QString &message);
-    void loadCurrent();
     void readMetadata();
     void advanceAfterEnd();
     void tick();
@@ -274,15 +333,74 @@ private:
     int m_repeat = RepeatOff;
     qreal m_volume = 0.8;
 
-    QMediaPlayer m_player;
-    QAudioOutput m_audio;
-    QAudioBufferOutput m_tap;
+    // Two players, so the next track can be loaded while this one plays and
+    // take over without a gap, or fade in under the one fading out.
+    struct Voice {
+        explicit Voice(QObject *parent) : player(parent), out(parent), tap(parent) {}
+        QMediaPlayer player;
+        QAudioOutput out;
+        QAudioBufferOutput tap;
+        QString path;       // the file this voice has loaded, or is loading
+        bool ready = false;  // loaded and able to start at once
+        double fade = 1.0;   // 0 to 1, for a crossfade
+    };
+    enum class Handoff { Manual, Natural };
+    void loadCurrent(Handoff handoff = Handoff::Manual);
+    void loadLyrics();
+    void watchLibrary(const QStringList &paths);
+    void rescan();
+    Voice &active() const { return *m_voices[m_active]; }
+    Voice &idle() const { return *m_voices[1 - m_active]; }
+    QMediaPlayer &player() const { return active().player; }
+    void wire(int index);
+    void applyGains();
+    QString computeNext(bool wrap) const;
+    void schedulePlan();
+    void planNext();
+    void beginTransition();
+    void finishFade();
+    void tickTransition();
+    void pushHistory(const QString &path);
+    void endSleep();
+    bool advance(bool wrap);
+
+    std::array<std::unique_ptr<Voice>, 2> m_voices;
+    int m_active = 0;
+    int m_fadeVoice = -1;  // the voice fading out, or -1
+    qint64 m_fadeMs = 0;
+    QElapsedTimer m_fadeClock;
+    // The player's own last position report, for timing the handoff. The
+    // smoothed clock the visualizer uses may run a little ahead of the sound.
+    qint64 m_reportedPosition = 0;
+    QElapsedTimer m_reportClock;
+    QString m_planned;  // the track queued up behind this one
+    QTimer m_planTimer, m_transitionTimer, m_sleepTimer;
+    QStringList m_history;
+    QString m_lastPath;
+    bool m_goingBack = false;
+    bool m_muted = false;
+    int m_replayGain = 0;
+    int m_crossfade = 0;
+    int m_sleepSetting = 0;
+    bool m_sleepAtEnd = false;
+    QElapsedTimer m_sleepClock;
+    qint64 m_sleepMs = 0;
+    double m_sleepFactor = 1.0;
     QQueue<QAudioBuffer> m_buffers;
     Analyzer m_analyzer;
     QTimer m_frames;
     QElapsedTimer m_clock;
     qint64 m_clockBase = 0;
     QVariantList m_levelList;
+    int m_sortMode = 0;
+    bool m_showLyrics = false;
+    Lyrics m_lyrics;
+    QFutureWatcher<Lyrics> m_lyricsWatcher;
+    QString m_lyricsFor;
+    // The library follows its folder: changes there trigger a quiet rescan.
+    QFileSystemWatcher m_folders;
+    QTimer m_rescanTimer, m_pollTimer;
+    bool m_rescanning = false;
     QFutureWatcher<QStringList> m_watcher;
     QFutureWatcher<TagResult> m_tagWatcher;
 };

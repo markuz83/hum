@@ -84,6 +84,193 @@ private slots:
         QCOMPARE(backend.currentRow(), 2);
     }
 
+    void shuffledPreviousRetracesWhatPlayed()
+    {
+        QTemporaryDir dir;
+        Backend backend;
+        ready(backend, dir, {"a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3", "f.mp3"});
+        backend.setShuffle(true);
+        backend.play(0);
+        QStringList played{backend.currentPath()};
+        for (int i = 0; i < 4; ++i) {
+            backend.next();
+            played << backend.currentPath();
+        }
+        // Going back follows the shuffled order in reverse, not the list's.
+        for (int i = 3; i >= 0; --i) {
+            backend.previous();
+            QCOMPARE(backend.currentPath(), played[i]);
+        }
+    }
+
+    void sleepTimerStepsThroughItsSettings()
+    {
+        Backend backend;
+        QCOMPARE(backend.sleepSetting(), 0);
+        QList<int> seen;
+        for (int i = 0; i < 8; ++i) {
+            backend.cycleSleep();
+            seen << backend.sleepSetting();
+        }
+        QCOMPARE(seen, QList<int>({15, 30, 45, 60, 90, -1, 0, 15}));
+        backend.setSleep(30);
+        QVERIFY(backend.sleepRemaining() > 29 * 60 && backend.sleepRemaining() <= 30 * 60);
+        backend.setSleep(0);
+        QCOMPARE(backend.sleepRemaining(), 0);
+    }
+
+    void crossfadeStepsAndIsKeptInRange()
+    {
+        Backend backend;
+        QList<int> seen;
+        for (int i = 0; i < 8; ++i) {
+            backend.cycleCrossfade();
+            seen << backend.crossfade();
+        }
+        QCOMPARE(seen, QList<int>({2, 4, 6, 8, 10, 12, 0, 2}));
+        backend.setCrossfade(99);
+        QCOMPARE(backend.crossfade(), 12);
+    }
+
+    void replayGainLevelsTracksAndFallsBack()
+    {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        auto gained = [&](const QString &name, const QStringList &extra) {
+            QProcess ffmpeg;
+            ffmpeg.start("ffmpeg", QStringList{"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", "1"}
+                                       + extra + QStringList{"-y", dir.path() + "/" + name});
+            QVERIFY(ffmpeg.waitForFinished(15000));
+        };
+        gained("a.flac", {"-metadata", "REPLAYGAIN_TRACK_GAIN=-6.00 dB", "-metadata", "REPLAYGAIN_ALBUM_GAIN=-2.00 dB"});
+        gained("b.flac", {"-metadata", "REPLAYGAIN_ALBUM_GAIN=-4.00 dB"});
+        gained("c.flac", {"-metadata", "title=Plain"});
+        Backend backend;
+        ready(backend, dir, {});
+        const QString a = dir.path() + "/a.flac", b = dir.path() + "/b.flac", c = dir.path() + "/c.flac";
+        QCOMPARE(backend.leveling(a), 1.0);  // off by default
+        backend.setReplayGain(1);
+        QVERIFY(qAbs(backend.leveling(a) - std::pow(10.0, -6.0 / 20)) < 1e-9);
+        QVERIFY(qAbs(backend.leveling(b) - std::pow(10.0, -4.0 / 20)) < 1e-9);  // no track gain: uses the album's
+        QCOMPARE(backend.leveling(c), 1.0);  // no gain at all
+        backend.setReplayGain(2);
+        QVERIFY(qAbs(backend.leveling(a) - std::pow(10.0, -2.0 / 20)) < 1e-9);
+    }
+
+    void sortModesReorderTheTitleList()
+    {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty() || QStandardPaths::findExecutable("ffprobe").isEmpty())
+            QSKIP("ffmpeg and ffprobe are needed to make tagged files");
+        QTemporaryDir dir;
+        auto tone = [&](const QString &name, const QString &title, int track, const QString &year, int seconds) {
+            QProcess ffmpeg;
+            ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", QString::number(seconds),
+                                    "-metadata", "title=" + title, "-metadata", "artist=A", "-metadata", "album=X",
+                                    "-metadata", "track=" + QString::number(track), "-metadata", "date=" + year,
+                                    "-y", dir.path() + "/" + name});
+            QVERIFY(ffmpeg.waitForFinished(15000));
+        };
+        tone("1.flac", "Cee", 1, "2001", 3);
+        tone("2.flac", "Bee", 2, "1999", 1);
+        tone("3.flac", "Aye", 3, "", 2);
+        // Modified times, oldest first: 3, 1, 2.
+        auto age = [&](const QString &name, qint64 secs) {
+            QFile file(dir.path() + "/" + name);
+            QVERIFY(file.open(QIODevice::ReadWrite));
+            QVERIFY(file.setFileTime(QDateTime::fromSecsSinceEpoch(secs), QFileDevice::FileModificationTime));
+        };
+        age("3.flac", 1000000000);
+        age("1.flac", 1100000000);
+        age("2.flac", 1200000000);
+        Backend backend;
+        ready(backend, dir, {});
+        auto names = [&] { QStringList out; for (const QString &t : backend.titles()) out << t.section("  ", -1); return out; };
+        QCOMPARE(names(), QStringList({"Cee", "Bee", "Aye"}));            // album order
+        backend.setSortMode(1);
+        QCOMPARE(names(), QStringList({"Aye", "Bee", "Cee"}));            // title
+        backend.setSortMode(2);
+        QCOMPARE(names(), QStringList({"Bee", "Cee", "Aye"}));            // year; no year last
+        backend.setSortMode(3);
+        QCOMPARE(names(), QStringList({"Bee", "Cee", "Aye"}));            // newest file first
+        backend.setSortMode(4);
+        QCOMPARE(names(), QStringList({"Bee", "Aye", "Cee"}));            // shortest first
+        QVERIFY(!backend.titles().first().contains("  "));                // no track numbers outside album order
+    }
+
+    void lyricsParseSyncedAndPlainText()
+    {
+        const auto synced = Backend::parseLyrics("[ar:Someone]\r\n[00:12.50]Second\r\n[00:01.5][00:30]Chorus\n[ti:Song]\n");
+        QCOMPARE(synced.lines, QStringList({"Chorus", "Second", "Chorus"}));
+        QCOMPARE(synced.times, QList<qint64>({1500, 12500, 30000}));
+        const auto plain = Backend::parseLyrics("\n[Verse 1]\nLine one\n\nLine two\n\n");
+        QCOMPARE(plain.lines, QStringList({"[Verse 1]", "Line one", "", "Line two"}));
+        QVERIFY(plain.times.isEmpty());
+    }
+
+    void lyricsComeFromALrcFileOrTheTags()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/song.mp3");
+        write(dir.path() + "/song.LRC", "[00:05.00]Hello\n[00:09.00]World\n");
+        auto lyrics = Backend::readLyrics(dir.path() + "/song.mp3", {});
+        QCOMPARE(lyrics.lines, QStringList({"Hello", "World"}));
+        QCOMPARE(lyrics.times.size(), 2);
+
+        const QString ffprobe = QStandardPaths::findExecutable("ffprobe");
+        if (ffprobe.isEmpty() || QStandardPaths::findExecutable("ffmpeg").isEmpty())
+            return;
+        QProcess ffmpeg;
+        ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", "1",
+                                "-metadata", "lyrics=First line\nSecond line", "-y", dir.path() + "/tagged.flac"});
+        QVERIFY(ffmpeg.waitForFinished(15000));
+        lyrics = Backend::readLyrics(dir.path() + "/tagged.flac", ffprobe);
+        QCOMPARE(lyrics.lines, QStringList({"First line", "Second line"}));
+        QVERIFY(lyrics.times.isEmpty());
+        QVERIFY(Backend::readLyrics(dir.path() + "/missing.flac", ffprobe).lines.isEmpty());
+    }
+
+    void lyricLineFollowsThePosition()
+    {
+        QTemporaryDir dir;
+        touch(dir.path() + "/a.mp3");
+        write(dir.path() + "/a.lrc", "[00:02.00]one\n[00:04.00]two\n");
+        Backend backend;
+        ready(backend, dir, {});
+        backend.setShowLyrics(true);
+        backend.play(0);
+        QTRY_COMPARE(backend.lyricLines(), QStringList({"one", "two"}));
+        QCOMPARE(backend.lyricIndexAt(500), -1);
+        QCOMPARE(backend.lyricIndexAt(2000), 0);
+        QCOMPARE(backend.lyricIndexAt(9000), 1);
+    }
+
+    void libraryFollowsItsFolderAndKeepsTheSelection()
+    {
+        QTemporaryDir dir;
+        QDir().mkpath(dir.path() + "/Band/Album");
+        touch(dir.path() + "/Band/Album/one.mp3");
+        touch(dir.path() + "/Other/two.mp3");
+        QDir().mkpath(dir.path() + "/Other");
+        touch(dir.path() + "/Other/two.mp3");
+        Backend backend;
+        backend.setCacheFile(dir.path() + "/.cache/tags.json");
+        backend.open(dir.path());
+        QTRY_VERIFY(!backend.scanning() && !backend.reading() && backend.libraryCount() == 2);
+        backend.selectArtist(1);
+        const int row = backend.artistRow();
+        // A file appears in a folder already known, then one in a brand new folder.
+        touch(dir.path() + "/Band/Album/three.mp3");
+        QTRY_COMPARE_WITH_TIMEOUT(backend.libraryCount(), 3, 8000);
+        QCOMPARE(backend.artistRow(), row);
+        QDir().mkpath(dir.path() + "/Fresh");
+        touch(dir.path() + "/Fresh/four.mp3");
+        QTRY_COMPARE_WITH_TIMEOUT(backend.libraryCount(), 4, 8000);
+        QFile::remove(dir.path() + "/Other/two.mp3");
+        QTRY_COMPARE_WITH_TIMEOUT(backend.libraryCount(), 3, 8000);
+        QCOMPARE(backend.artistRow(), row);
+    }
+
     void currentTrackSurvivesFiltering()
     {
         QTemporaryDir dir;
@@ -109,6 +296,26 @@ private slots:
         QCOMPARE(Backend::parseProbe(R"({"format": {"tags": {"artist": "A", "album_artist": "Various"}}})").artist,
                  QString("Various"));
         QVERIFY(Backend::parseProbe("not json").title.isEmpty());
+    }
+
+    void probeReadsTagsKeptOnTheStreamAndReplayGain()
+    {
+        // Opus and Ogg put their tags on the audio stream, not the file.
+        auto tags = Backend::parseProbe(R"({"streams": [{"codec_type": "audio", "tags": {"TITLE": "Song", "ARTIST": "Band",
+            "R128_TRACK_GAIN": "-512", "REPLAYGAIN_ALBUM_GAIN": "-3.25 dB"}}], "format": {"tags": {}}})");
+        QCOMPARE(tags.title, QString("Song"));
+        QCOMPARE(tags.artist, QString("Band"));
+        QCOMPARE(tags.trackGain, 3.0);  // -512/256 + 5: Opus is -23 LUFS, ReplayGain -18
+        QCOMPARE(tags.albumGain, -3.25);
+        // A cover picture's tags are not the music's.
+        tags = Backend::parseProbe(R"({"streams": [{"codec_type": "video", "tags": {"title": "cover"}}], "format": {"tags": {}}})");
+        QVERIFY(tags.title.isEmpty());
+        QVERIFY(qIsNaN(tags.trackGain));
+        // Where both exist, the file's tags win and the year is the first four digits.
+        tags = Backend::parseProbe(R"({"streams": [{"codec_type": "audio", "tags": {"title": "Old"}}],
+            "format": {"tags": {"title": "New", "date": "1977-10-14"}}})");
+        QCOMPARE(tags.title, QString("New"));
+        QCOMPARE(tags.year, 1977);
     }
 
     void probeReadsTheLength()
@@ -287,6 +494,26 @@ private slots:
         QCOMPARE(again.currentRow(), 1);
         QVERIFY(!again.playing());
         QTRY_VERIFY(qAbs(again.position() - 2000) < 400);
+    }
+
+    void aSavedTrackThatIsGoneIsQuietlyForgotten()
+    {
+        QTemporaryDir dir;
+        const QString state = dir.path() + "/state.json";
+        write(state, QByteArray("{\"track\": \"") + dir.path().toUtf8() + "/deleted.mp3\", \"position\": 5000, \"library\": \""
+                         + dir.path().toUtf8() + "\", \"volume\": 0, \"queue\": [\"" + dir.path().toUtf8() + "/deleted.mp3\"]}");
+        Backend backend;
+        backend.setStateFile(state);
+        ready(backend, dir, {"a.mp3", "b.mp3"});
+        // Nothing is resumed and nothing is reported: the library just opens.
+        QCOMPARE(backend.currentRow(), -1);
+        QVERIFY(!backend.playing());
+        QVERIFY(backend.error().isEmpty());
+        QCOMPARE(backend.queue().size(), 0);  // a queued file that is gone leaves the queue too
+        backend.saveState();
+        QFile saved(state);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(!QString::fromUtf8(saved.readAll()).contains("deleted.mp3"));
     }
 
     void aCommandLineFileBeatsTheSavedTrack()

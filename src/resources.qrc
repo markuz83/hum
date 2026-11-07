@@ -5,6 +5,7 @@
         <file alias="QueuePanel.qml">QueuePanel.qml</file>
         <file alias="BrowserColumn.qml">BrowserColumn.qml</file>
         <file alias="Visualizer.qml">Visualizer.qml</file>
+        <file alias="LyricsView.qml">LyricsView.qml</file>
         <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
         <file alias="i18n/en.json">i18n/en.json</file>
         <file alias="i18n/da.json">i18n/da.json</file>
