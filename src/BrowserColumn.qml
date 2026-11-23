@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // One column of the library browser: a heading over a list of rows.
@@ -46,7 +45,7 @@ Item {
             clip: true
             model: column.model
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: GtScrollBar {}
 
             delegate: Item {
                 required property int index
@@ -92,17 +91,9 @@ Item {
                 // A name that doesn't fit is shown whole after a short hover. It
                 // comes from a file's tags, so it is drawn as plain text, never
                 // as markup.
-                ToolTip {
-                    id: fullName
+                GtToolTip {
                     visible: rowHover.hovered && rowText.truncated
-                    delay: 600
                     text: rowText.text
-                    contentItem: Text {
-                        textFormat: Text.PlainText
-                        text: fullName.text
-                        font: fullName.font
-                        color: fullName.Material.foreground
-                    }
                 }
                 TapHandler {
                     onTapped: {

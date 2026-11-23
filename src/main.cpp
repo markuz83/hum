@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     // opacity setting, so the surface needs an alpha channel.
     QQuickWindow::setDefaultAlphaBuffer(true);
 
-    QQuickStyle::setStyle("Material");
+    QQuickStyle::setStyle("Basic");
 
     // Installed before anything is translated, and every qsTr() binding is
     // re-evaluated when the Omarchy language changes.

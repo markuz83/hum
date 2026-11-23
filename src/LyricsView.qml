@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 
 // The lyrics of the playing track. Synced lyrics follow the music with the
 // current line highlighted, and a click on a line jumps to it; plain lyrics
@@ -17,7 +16,7 @@ Item {
         clip: true
         model: backend.lyricLines
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar {}
+        ScrollBar.vertical: GtScrollBar {}
         // Synced lyrics keep the current line in the middle.
         currentIndex: view.line
         highlightRangeMode: view.synced ? ListView.StrictlyEnforceRange : ListView.NoHighlightRange

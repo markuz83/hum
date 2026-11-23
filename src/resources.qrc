@@ -11,6 +11,10 @@
         <file alias="BarSlider.qml">BarSlider.qml</file>
         <file alias="CoverArt.qml">CoverArt.qml</file>
         <file alias="FilterBox.qml">FilterBox.qml</file>
+        <file alias="GtMenu.qml">GtMenu.qml</file>
+        <file alias="GtScrollBar.qml">GtScrollBar.qml</file>
+        <file alias="GtSpinner.qml">GtSpinner.qml</file>
+        <file alias="GtToolTip.qml">GtToolTip.qml</file>
         <file alias="LibraryPlaceholder.qml">LibraryPlaceholder.qml</file>
         <file alias="QueueSplitter.qml">QueueSplitter.qml</file>
         <file alias="TransportControls.qml">TransportControls.qml</file>

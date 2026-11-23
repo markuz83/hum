@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // The play queue: what plays next, ahead of the library. Rows can be dragged
@@ -64,7 +63,7 @@ Item {
                 model: backend.queue
                 currentIndex: 0
                 boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GtScrollBar {}
 
                 // While a row is dragged, where it would land.
                 property int draggingIndex: -1

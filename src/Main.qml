@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 ApplicationWindow {
@@ -19,10 +18,6 @@ ApplicationWindow {
     color: Qt.rgba(ground.r * theme.windowAlpha, ground.g * theme.windowAlpha,
                    ground.b * theme.windowAlpha, theme.windowAlpha)
 
-    Material.theme: theme.dark ? Material.Dark : Material.Light
-    Material.accent: theme.accent
-    Material.foreground: theme.foreground
-    Material.roundedScale: theme.radius
     // Omarchy's monospace font, which follows `omarchy font set`.
     font.family: theme.fontFamily
 
@@ -149,12 +144,11 @@ ApplicationWindow {
     AppShortcuts { win: win }
 
     // Right-click on a row: play it, play it next, or queue it.
-    Menu {
+    GtMenu {
         id: contextMenu
         objectName: "contextMenu"
         property int column: 2
         property int row: 0
-        font.family: theme.fontFamily
         MenuItem { objectName: "playItem"; text: qsTr("Play"); onTriggered: win.playFrom(contextMenu.column, contextMenu.row) }
         MenuItem { objectName: "playNextItem"; text: qsTr("Play next"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, true) }
         MenuItem { objectName: "addItem"; text: qsTr("Add to queue"); onTriggered: win.enqueueFrom(contextMenu.column, contextMenu.row, false) }

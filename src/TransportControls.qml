@@ -59,9 +59,10 @@ RowLayout {
         onMoved: f => backend.volume = f
         onWheeled: delta => backend.changeVolume(delta > 0 ? 0.05 : -0.05)
 
-        ToolTip.visible: volumeHover.hovered
-        ToolTip.delay: 600
-        ToolTip.text: backend.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(transport.win.percent(backend.volume))
+        GtToolTip {
+            visible: volumeHover.hovered
+            text: backend.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(transport.win.percent(backend.volume))
+        }
         HoverHandler { id: volumeHover; cursorShape: Qt.PointingHandCursor }
     }
 }

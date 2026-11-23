@@ -9,10 +9,9 @@ ColumnLayout {
 
     property bool empty: false
 
-    BusyIndicator {
+    GtSpinner {
         Layout.alignment: Qt.AlignHCenter
         visible: backend.scanning
-        running: visible
     }
     Label {
         textFormat: Text.PlainText
@@ -37,17 +36,19 @@ ColumnLayout {
         visible: empty
         implicitWidth: chooseLabel.implicitWidth + 32
         implicitHeight: 38
-        radius: Math.min(8, theme.radius)
-        color: chooseTap.pressed ? Qt.darker(theme.accent, 1.2) : theme.accent
+        radius: Math.min(4, theme.radius)
+        border.width: 1
+        border.color: chooseTap.pressed ? theme.accent : "transparent"
+        color: chooseTap.pressed ? theme.highlight : chooseHover.hovered ? Qt.lighter(theme.accent, 1.15) : theme.accent
         Label {
             textFormat: Text.PlainText
             id: chooseLabel
             anchors.centerIn: parent
             text: qsTr("Choose music folder")
-            color: theme.accentForeground
+            color: chooseTap.pressed ? theme.accent : theme.accentForeground
             font.bold: true
         }
-        HoverHandler { cursorShape: Qt.PointingHandCursor }
+        HoverHandler { id: chooseHover; cursorShape: Qt.PointingHandCursor }
         TapHandler { id: chooseTap; onTapped: backend.chooseLibrary() }
     }
 }
