@@ -7,6 +7,13 @@
         <file alias="Visualizer.qml">Visualizer.qml</file>
         <file alias="LyricsView.qml">LyricsView.qml</file>
         <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
+        <file alias="AppShortcuts.qml">AppShortcuts.qml</file>
+        <file alias="BarSlider.qml">BarSlider.qml</file>
+        <file alias="CoverArt.qml">CoverArt.qml</file>
+        <file alias="FilterBox.qml">FilterBox.qml</file>
+        <file alias="LibraryPlaceholder.qml">LibraryPlaceholder.qml</file>
+        <file alias="QueueSplitter.qml">QueueSplitter.qml</file>
+        <file alias="TransportControls.qml">TransportControls.qml</file>
         <file alias="i18n/en.json">i18n/en.json</file>
         <file alias="i18n/da.json">i18n/da.json</file>
         <file alias="i18n/ar.json">i18n/ar.json</file>

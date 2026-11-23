@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
-import QtQuick.Effects
 import QtQuick.Layouts
 
 ApplicationWindow {
@@ -59,7 +58,7 @@ ApplicationWindow {
         onTriggered: win.errorShown = false
     }
     // Typing in the filter must not trigger the single-key shortcuts.
-    readonly property bool typing: filter.activeFocus
+    readonly property bool typing: filter.typing
 
     function pad(n) {
         return (n < 10 ? (0).toLocaleString(Qt.locale(), 'f', 0) : "") + n.toLocaleString(Qt.locale(), 'f', 0)
@@ -147,70 +146,7 @@ ApplicationWindow {
         backend.queueRatio = lower.queueWidth / lower.width + delta
     }
 
-    Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
-    Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; enabled: win.helpVisible; onActivated: win.helpVisible = false }
-    Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: Qt.quit() }
-    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggle() }
-    Shortcut { sequence: "N"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.next() }
-    Shortcut { sequence: "P"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.previous() }
-    Shortcut { sequence: "Right"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.seekBy(5000) }
-    Shortcut { sequence: "Left"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.seekBy(-5000) }
-    Shortcut { sequences: ["+", "="]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.changeVolume(0.05) }
-    Shortcut { sequences: ["-", "_"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.changeVolume(-0.05) }
-    Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleMute() }
-    Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleShuffle() }
-    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleRepeat() }
-    Shortcut {
-        sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: { backend.cycleVisualizerRate(); win.notify(qsTr("Visualizer refresh: %1").arg(qsTr("%1 Hz").arg(backend.visualizerRate))) }
-    }
-    Shortcut {
-        sequence: "G"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: {
-            backend.cycleReplayGain()
-            win.notify(qsTr("Volume leveling: %1").arg(backend.replayGain === 0 ? qsTr("off")
-                : backend.replayGain === 1 ? qsTr("per track") : qsTr("per album")))
-        }
-    }
-    Shortcut {
-        sequence: "C"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: {
-            backend.cycleCrossfade()
-            win.notify(qsTr("Crossfade: %1").arg(backend.crossfade === 0 ? qsTr("off (gapless)") : qsTr("%1 s").arg(backend.crossfade)))
-        }
-    }
-    Shortcut {
-        sequence: "T"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: { backend.cycleSleep(); win.notify(qsTr("Sleep timer: %1").arg(win.sleepLabel(backend.sleepSetting))) }
-    }
-    Shortcut { sequence: "Y"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.showLyrics = !backend.showLyrics }
-    Shortcut {
-        sequence: "Shift+S"; context: Qt.ApplicationShortcut; enabled: !win.typing
-        onActivated: {
-            backend.cycleSort()
-            win.notify(qsTr("Sort: %1").arg([qsTr("album order"), qsTr("title"), qsTr("year"), qsTr("recently added"), qsTr("length")][backend.sortMode]))
-        }
-    }
-    Shortcut { sequence: "V"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.cycleVisualizer() }
-    Shortcut { sequences: ["J", "Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(1) }
-    Shortcut { sequences: ["K", "Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.move(-1) }
-    Shortcut { sequences: ["L", "Tab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.min(3, win.activeColumn + 1) }
-    Shortcut { sequences: ["H", "Backtab"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activeColumn = Math.max(0, win.activeColumn - 1) }
-    Shortcut { sequences: ["Return", "Enter"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.activate() }
-    Shortcut { sequence: "O"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.chooseLibrary() }
-    Shortcut { sequence: "/"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: filter.forceActiveFocus() }
-    Shortcut { sequence: "A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.addToQueue(false) }
-    Shortcut { sequence: "Shift+A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.addToQueue(true) }
-    Shortcut { sequences: ["X", "Delete", "Backspace"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.removeFromQueue() }
-    Shortcut { sequence: "Shift+X"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.clearQueue() }
-    Shortcut { sequences: ["Shift+J", "Alt+Down"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.moveQueueItem(1) }
-    Shortcut { sequences: ["Shift+K", "Alt+Up"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.moveQueueItem(-1) }
-    Shortcut { sequence: "Ctrl+Z"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.undoQueue() }
-    Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.redoQueue() }
-    // Pane sizes: [ and ] make the queue narrower or wider, and \ puts it back.
-    Shortcut { sequence: "]"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.resizeQueue(0.02) }
-    Shortcut { sequence: "["; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.resizeQueue(-0.02) }
-    Shortcut { sequence: "\\"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.queueRatio = 1 / 3 }
+    AppShortcuts { win: win }
 
     // Right-click on a row: play it, play it next, or queue it.
     Menu {
@@ -243,50 +179,10 @@ ApplicationWindow {
                 Layout.margins: 24
                 spacing: 24
 
-                Item {
+                CoverArt {
                     Layout.alignment: Qt.AlignTop
                     Layout.preferredWidth: Math.min(240, nowPlaying.height)
                     Layout.preferredHeight: Layout.preferredWidth
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: theme.highlight
-                        radius: theme.radius
-                        Label {
-                            textFormat: Text.PlainText
-                            anchors.centerIn: parent
-                            visible: !backend.hasCover
-                            text: "♪"
-                            color: theme.dim
-                            font.pixelSize: parent.width / 3
-                        }
-                    }
-                    Image {
-                        id: coverImage
-                        anchors.fill: parent
-                        // Sharp corners need no effect; with rounded windows the
-                        // image is hidden here and drawn through the mask below.
-                        visible: backend.hasCover && theme.radius === 0
-                        source: backend.hasCover ? "image://cover/" + backend.coverId : ""
-                        fillMode: Image.PreserveAspectCrop
-                        sourceSize: Qt.size(480, 480)
-                        cache: false
-                    }
-                    // Rounded to match the windows' corners.
-                    Rectangle {
-                        id: coverMask
-                        anchors.fill: parent
-                        radius: theme.radius
-                        visible: false
-                        layer.enabled: true
-                    }
-                    MultiEffect {
-                        anchors.fill: parent
-                        visible: backend.hasCover && theme.radius > 0
-                        source: coverImage
-                        maskEnabled: true
-                        maskSource: coverMask
-                    }
                 }
 
                 ColumnLayout {
@@ -374,35 +270,11 @@ ApplicationWindow {
                     }
 
                     // Seek bar: click or drag anywhere along it.
-                    Item {
-                        id: seek
+                    BarSlider {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 20
-
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width
-                            height: 4
-                            radius: Math.min(2, theme.radius)
-                            color: theme.highlight
-                            Rectangle {
-                                anchors.left: parent.left
-                                height: parent.height
-                                radius: parent.radius
-                                width: backend.duration > 0 ? parent.width * Math.min(1, backend.position / backend.duration) : 0
-                                color: theme.accent
-                            }
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            preventStealing: true
-                            function seekTo() {
-                                const x = LayoutMirroring.enabled ? width - mouseX : mouseX
-                                backend.seek(Math.max(0, Math.min(1, x / width)) * backend.duration)
-                            }
-                            onPressed: seekTo()
-                            onPositionChanged: if (pressed) seekTo()
-                        }
+                        fraction: backend.duration > 0 ? backend.position / backend.duration : 0
+                        onMoved: f => backend.seek(f * backend.duration)
                     }
 
                     RowLayout {
@@ -420,82 +292,9 @@ ApplicationWindow {
                         Label { text: win.clock(backend.duration); color: win.dim }
                     }
 
-                    // Transport keeps previous, play, next in every language, like
-                    // their glyphs; media controls are not mirrored.
-                    RowLayout {
+                    TransportControls {
                         Layout.fillWidth: true
-                        spacing: 4
-                        LayoutMirroring.enabled: false
-                        LayoutMirroring.childrenInherit: true
-
-                        IconButton {
-                            glyph: "󰒟"
-                            checked: backend.shuffle
-                            tip: qsTr("Shuffle")
-                            onClicked: backend.toggleShuffle()
-                        }
-                        IconButton {
-                            glyph: backend.repeat === 2 ? "󰑘" : "󰑖"
-                            checked: backend.repeat > 0
-                            tip: win.repeatLabel()
-                            onClicked: backend.cycleRepeat()
-                        }
-                        Item { Layout.fillWidth: true }
-                        IconButton {
-                            glyph: "󰒮"
-                            size: 40
-                            tip: qsTr("Previous track / restart")
-                            onClicked: backend.previous()
-                        }
-                        IconButton {
-                            glyph: backend.playing ? "󰏤" : "󰐊"
-                            emphasized: true
-                            size: 46
-                            tip: backend.playing ? qsTr("Pause") : qsTr("Play")
-                            onClicked: backend.toggle()
-                        }
-                        IconButton {
-                            glyph: "󰒭"
-                            size: 40
-                            tip: qsTr("Next track")
-                            onClicked: backend.next()
-                        }
-                        Item { Layout.fillWidth: true }
-                        IconButton {
-                            glyph: win.volumeGlyph()
-                            tip: backend.muted ? qsTr("Unmute") : qsTr("Mute")
-                            onClicked: backend.toggleMute()
-                        }
-                        // Volume: click or drag along it, or scroll over it.
-                        Item {
-                            Layout.preferredWidth: 110
-                            Layout.preferredHeight: 28
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width
-                                height: 4
-                                radius: Math.min(2, theme.radius)
-                                color: theme.highlight
-                                Rectangle {
-                                    height: parent.height
-                                    radius: parent.radius
-                                    width: parent.width * (backend.muted ? 0 : backend.volume)
-                                    color: theme.accent
-                                }
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                preventStealing: true
-                                function setTo() { backend.volume = Math.max(0, Math.min(1, mouseX / width)) }
-                                onPressed: setTo()
-                                onPositionChanged: if (pressed) setTo()
-                                onWheel: wheel => backend.changeVolume(wheel.angleDelta.y > 0 ? 0.05 : -0.05)
-                            }
-                            ToolTip.visible: volumeHover.hovered
-                            ToolTip.delay: 600
-                            ToolTip.text: backend.muted ? qsTr("Muted") : qsTr("Volume %1%").arg(win.percent(backend.volume))
-                            HoverHandler { id: volumeHover; cursorShape: Qt.PointingHandCursor }
-                        }
+                        win: win
                     }
                 }
             }
@@ -523,54 +322,11 @@ ApplicationWindow {
                     anchors.rightMargin: 8
                     spacing: 8
 
-                // A compact filter box, with a clear button once it has text.
-                Rectangle {
+                FilterBox {
+                    id: filter
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 34
-                    radius: Math.min(6, theme.radius)
-                    color: "transparent"
-                    border.width: 1
-                    border.color: filter.activeFocus ? theme.accent : theme.highlight
-
-                    TapHandler { onTapped: filter.forceActiveFocus() }
-
-                    Label {
-                        textFormat: Text.PlainText
-                        anchors.left: parent.left
-                        anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: filter.text.length === 0
-                        text: qsTr("Filter")
-                        color: win.dim
-                    }
-                    TextInput {
-                        id: filter
-                        anchors.left: parent.left
-                        anchors.right: clearButton.left
-                        anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        clip: true
-                        color: theme.foreground
-                        selectionColor: theme.accent
-                        selectedTextColor: theme.accentForeground
-                        font.family: theme.fontFamily
-                        font.pixelSize: 14
-                        text: backend.filter
-                        onTextChanged: backend.filter = text
-                        onAccepted: { win.activeColumn = 2; titleColumn.list.currentIndex = 0; win.contentItem.forceActiveFocus() }
-                        Keys.onEscapePressed: { text = ""; win.contentItem.forceActiveFocus() }
-                    }
-                    IconButton {
-                        id: clearButton
-                        anchors.right: parent.right
-                        anchors.rightMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: filter.text.length > 0
-                        glyph: "󰅖"
-                        size: 24
-                        tip: qsTr("Clear filter")
-                        onClicked: { filter.text = ""; filter.forceActiveFocus() }
-                    }
+                    onAccepted: { win.activeColumn = 2; titleColumn.list.currentIndex = 0; win.contentItem.forceActiveFocus() }
+                    onDismissed: win.contentItem.forceActiveFocus()
                 }
 
                 Item {
@@ -637,55 +393,11 @@ ApplicationWindow {
                         }
                     }
 
-                    // While scanning, and when there is nothing to browse, say so
-                    // and say what to do about it.
-                    ColumnLayout {
+                    LibraryPlaceholder {
                         anchors.centerIn: parent
                         width: Math.min(parent.width - 32, 480)
                         visible: win.emptyLibrary || backend.scanning
-                        spacing: 12
-
-                        BusyIndicator {
-                            Layout.alignment: Qt.AlignHCenter
-                            visible: backend.scanning
-                            running: visible
-                        }
-                        Label {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                            font.pixelSize: 18
-                            text: backend.scanning ? qsTr("Scanning %1…").arg(backend.libraryPath)
-                                : backend.error.length > 0 ? backend.error : qsTr("No music found")
-                        }
-                        Label {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            visible: win.emptyLibrary
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                            color: win.dim
-                            text: qsTr("Press %1 to choose a music folder.").arg("O")
-                        }
-                        Rectangle {
-                            Layout.alignment: Qt.AlignHCenter
-                            visible: win.emptyLibrary
-                            implicitWidth: chooseLabel.implicitWidth + 32
-                            implicitHeight: 38
-                            radius: Math.min(8, theme.radius)
-                            color: chooseTap.pressed ? Qt.darker(theme.accent, 1.2) : theme.accent
-                            Label {
-                                textFormat: Text.PlainText
-                                id: chooseLabel
-                                anchors.centerIn: parent
-                                text: qsTr("Choose music folder")
-                                color: theme.accentForeground
-                                font.bold: true
-                            }
-                            HoverHandler { cursorShape: Qt.PointingHandCursor }
-                            TapHandler { id: chooseTap; onTapped: backend.chooseLibrary() }
-                        }
+                        empty: win.emptyLibrary
                     }
                 }
 
@@ -726,39 +438,12 @@ ApplicationWindow {
                     }
                 }
 
-                // Drag to resize; double-click to reset. [ and ] do the same from the keyboard.
-                Item {
-                    id: splitter
+                QueueSplitter {
                     anchors.right: queuePane.left
                     anchors.rightMargin: -width / 2
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    width: 12
-                    z: 5
-
-                    Rectangle {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: splitArea.pressed || splitArea.containsMouse ? 3 : 1
-                        height: parent.height - 24
-                        radius: width / 2
-                        color: splitArea.pressed || splitArea.containsMouse ? theme.accent : theme.highlight
-                    }
-                    MouseArea {
-                        id: splitArea
-                        objectName: "splitter"
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        preventStealing: true
-                        cursorShape: Qt.SplitHCursor
-                        onPositionChanged: mouse => {
-                            if (!pressed) return
-                            const x = mapToItem(lower, mouse.x, 0).x
-                            // Right-to-left puts the queue on the left, so the share flips.
-                            backend.queueRatio = LayoutMirroring.enabled ? x / lower.width : 1 - x / lower.width
-                        }
-                        onDoubleClicked: backend.queueRatio = 1 / 3
-                    }
+                    container: lower
                 }
             }
         }
